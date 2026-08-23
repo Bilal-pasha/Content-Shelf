@@ -1,7 +1,16 @@
 import { IsString, IsUrl, IsOptional, IsIn, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsPublicUrl } from '../../../common/security/is-public-url.validator';
 
-const SOURCES = ['instagram', 'facebook', 'twitter', 'tiktok', 'youtube', 'linkedin', 'other'] as const;
+const SOURCES = [
+  'instagram',
+  'facebook',
+  'twitter',
+  'tiktok',
+  'youtube',
+  'linkedin',
+  'other',
+] as const;
 const CATEGORIES = [
   'nature',
   'cooking',
@@ -21,6 +30,7 @@ export class CreateLinkDto {
   @IsString()
   @IsUrl({}, { message: 'Please provide a valid URL' })
   @MaxLength(2048)
+  @IsPublicUrl()
   url: string;
 
   @ApiPropertyOptional({
@@ -49,7 +59,9 @@ export class CreateLinkDto {
   })
   @IsOptional()
   @IsString()
-  @IsIn(CATEGORIES, { message: `category must be one of: ${CATEGORIES.join(', ')}` })
+  @IsIn(CATEGORIES, {
+    message: `category must be one of: ${CATEGORIES.join(', ')}`,
+  })
   category?: (typeof CATEGORIES)[number];
 
   @ApiPropertyOptional({

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-export class AddCategoryAndThumbnailToLinks1735296200000
-  implements MigrationInterface
-{
+export class AddCategoryAndThumbnailToLinks1735296200000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const hasCategory = await queryRunner.hasColumn('links', 'category');
     if (!hasCategory) {

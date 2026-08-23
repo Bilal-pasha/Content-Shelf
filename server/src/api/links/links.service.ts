@@ -19,7 +19,7 @@ export class LinksService {
   ) {}
 
   async create(userId: string, dto: CreateLinkDto): Promise<Link> {
-    const source = (dto.source ?? this.inferSource(dto.url)) as LinkSource;
+    const source = dto.source ?? this.inferSource(dto.url);
     let title = dto.title ?? null;
     let thumbnailUrl = dto.thumbnailUrl ?? null;
 
@@ -59,7 +59,13 @@ export class LinksService {
 
   async findAll(
     userId: string,
-    opts?: { search?: string; source?: LinkSource; category?: string },
+    opts?: {
+      search?: string;
+      source?: LinkSource;
+      category?: string;
+      limit?: number;
+      offset?: number;
+    },
   ): Promise<Link[]> {
     const qb = this.linkRepository
       .createQueryBuilder('link')
@@ -78,38 +84,53 @@ export class LinksService {
 
     if (opts?.search?.trim()) {
       const term = `%${opts.search.trim()}%`;
-      qb.andWhere(
-        '(link.url ILIKE :term OR link.title ILIKE :term)',
-        { term },
-      );
+      qb.andWhere('(link.url ILIKE :term OR link.title ILIKE :term)', { term });
     }
 
+    const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100);
+    const offset = Math.max(opts?.offset ?? 0, 0);
+    qb.skip(offset).take(limit);
+
     const links = await qb.getMany();
-    // Backfill thumbnail for existing links where OG/platform fetch previously failed
-    for (const link of links) {
-      if (!link.thumbnailUrl) {
-        const yt = getYoutubeThumbnailUrl(link.url);
-        if (yt) {
-          link.thumbnailUrl = yt;
-        } else if (/instagram\.com|instagr\.am/i.test(link.url)) {
-          const ig = await getInstagramThumbnailUrl(link.url);
-          if (ig) link.thumbnailUrl = ig;
-        } else if (/facebook\.com|fb\.watch|fb\.com/i.test(link.url)) {
-          const fb = await getFacebookThumbnailUrl(link.url);
-          if (fb) link.thumbnailUrl = fb;
-        } else if (/linkedin\.com/i.test(link.url)) {
-          const li = await getLinkedInThumbnailUrl(link.url);
-          if (li) link.thumbnailUrl = li;
-        }
-      }
-    }
+
+    // Backfill thumbnails for links where OG/platform fetch previously
+    // failed. Only for rows that need it, and in parallel rather than a
+    // sequential loop — this used to be N sequential outbound round trips
+    // inside a single GET request.
+    await Promise.allSettled(
+      links
+        .filter((link) => !link.thumbnailUrl)
+        .map(async (link) => {
+          const yt = getYoutubeThumbnailUrl(link.url);
+          if (yt) {
+            link.thumbnailUrl = yt;
+          } else if (/instagram\.com|instagr\.am/i.test(link.url)) {
+            const ig = await getInstagramThumbnailUrl(link.url);
+            if (ig) link.thumbnailUrl = ig;
+          } else if (/facebook\.com|fb\.watch|fb\.com/i.test(link.url)) {
+            const fb = await getFacebookThumbnailUrl(link.url);
+            if (fb) link.thumbnailUrl = fb;
+          } else if (/linkedin\.com/i.test(link.url)) {
+            const li = await getLinkedInThumbnailUrl(link.url);
+            if (li) link.thumbnailUrl = li;
+          }
+        }),
+    );
+
     return links;
   }
 
   private inferSource(url: string): LinkSource {
     const u = url.toLowerCase();
-    if (u.includes('instagram.com') || u.includes('instagr.am')) return 'instagram';
-    if (u.includes('facebook.com') || u.includes('fb.com') || u.includes('fb.me') || u.includes('fb.watch')) return 'facebook';
+    if (u.includes('instagram.com') || u.includes('instagr.am'))
+      return 'instagram';
+    if (
+      u.includes('facebook.com') ||
+      u.includes('fb.com') ||
+      u.includes('fb.me') ||
+      u.includes('fb.watch')
+    )
+      return 'facebook';
     if (u.includes('twitter.com') || u.includes('x.com')) return 'twitter';
     if (u.includes('tiktok.com')) return 'tiktok';
     if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';

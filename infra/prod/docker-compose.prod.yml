@@ -3,8 +3,9 @@ services:
     image: postgres:16-alpine
     container_name: video-app-postgres
     restart: unless-stopped
-    ports:
-      - "5432:5432"
+    # No public port mapping — only reachable from other containers on
+    # video-app-network. Use `docker compose exec postgres psql ...` for
+    # direct access instead of exposing 5432 to the host/internet.
     env_file:
       - .env
     volumes:
@@ -21,8 +22,7 @@ services:
     image: redis:7-alpine
     container_name: video-app-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # No public port mapping — internal network only.
     env_file:
       - .env
     volumes:

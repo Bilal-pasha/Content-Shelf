@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Alert,
+  Linking,
   Pressable,
   StyleSheet,
   TextInput,
@@ -39,6 +40,13 @@ const AnimatedThemedView = Animated.createAnimatedComponent(ThemedView);
 
 const GoogleIcon = images.googleLogo;
 
+// TODO: these placeholder pages don't exist yet — host real Terms/Privacy
+// Policy pages at this domain (or point elsewhere) before shipping.
+const LEGAL_URLS = {
+  terms: 'https://video-mobile-application.com/terms',
+  privacy: 'https://video-mobile-application.com/privacy',
+};
+
 export default function RegisterScreen() {
   const router = useRouter();
   const { signUp, error: authError, clearError, isAuthenticated, isLoading } = useAuth();
@@ -68,8 +76,6 @@ export default function RegisterScreen() {
   const signUpButtonOpacity = useSharedValue(0);
   const dividerOpacity = useSharedValue(0);
   const dividerScale = useSharedValue(0.8);
-  const appleButtonTranslateY = useSharedValue(30);
-  const appleButtonOpacity = useSharedValue(0);
   const googleButtonTranslateY = useSharedValue(30);
   const googleButtonOpacity = useSharedValue(0);
 
@@ -127,12 +133,6 @@ export default function RegisterScreen() {
     );
 
     // Social buttons animation
-    appleButtonTranslateY.value = withDelay(
-      700,
-      withSpring(0, { damping: 15, stiffness: 150 })
-    );
-    appleButtonOpacity.value = withDelay(700, withTiming(1, { duration: 500 }));
-
     googleButtonTranslateY.value = withDelay(
       800,
       withSpring(0, { damping: 15, stiffness: 150 })
@@ -421,6 +421,8 @@ export default function RegisterScreen() {
                 <Pressable
                   onPress={() => setShowPassword((prev) => !prev)}
                   hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                   style={styles.eyeButton}
                 >
                   {showPassword ? (
@@ -511,8 +513,19 @@ export default function RegisterScreen() {
             <ThemedView style={styles.termsContainer}>
               <ThemedText style={[styles.termsText, { color: iconColor }]}>
                 By creating an account, you agree to our{" "}
-                <ThemedText style={styles.linkText}>Terms</ThemedText> &{" "}
-                <ThemedText style={styles.linkText}>Privacy Policy</ThemedText>
+                <ThemedText
+                  style={styles.linkText}
+                  onPress={() => Linking.openURL(LEGAL_URLS.terms)}
+                  accessibilityRole="link">
+                  Terms
+                </ThemedText>{" "}
+                &{" "}
+                <ThemedText
+                  style={styles.linkText}
+                  onPress={() => Linking.openURL(LEGAL_URLS.privacy)}
+                  accessibilityRole="link">
+                  Privacy Policy
+                </ThemedText>
               </ThemedText>
             </ThemedView>
 
@@ -633,13 +646,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 24,
   },
-  appleButton: {
-    backgroundColor: "#1C1C1E",
-    height: 56,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   googleButton: {
     height: 56,
     borderRadius: 12,
@@ -656,11 +662,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
     justifyContent: "center",
     alignItems: "center",
-  },
-  socialButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
   },
   googleButtonText: {
     fontSize: 16,

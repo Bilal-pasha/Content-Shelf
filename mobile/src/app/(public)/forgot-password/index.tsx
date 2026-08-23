@@ -1,7 +1,8 @@
 import { Link, router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   TextInput,
@@ -11,7 +12,7 @@ import {
   View,
   Text,
 } from 'react-native';
-import { ArrowLeft, Mail } from 'lucide-react-native';
+import { Mail } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -21,17 +22,29 @@ import Animated, {
   withSequence,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import Toast from 'react-native-toast-message';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { PublicRoutes } from '@/constants/routes';
+import { forgotPasswordSchema, type ForgotPasswordFormData } from '@/schemas/auth.schemas';
+import { useForgotPassword } from '@/services/auth/auth.services';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedThemedView = Animated.createAnimatedComponent(ThemedView);
 
 export default function ForgotPasswordScreen() {
-  const [email, setEmail] = useState('');
+  const forgotPassword = useForgotPassword();
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: '' },
+  });
 
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -47,8 +60,6 @@ export default function ForgotPasswordScreen() {
   const linkColor = useThemeColor({}, 'tint');
 
   // Animation values
-  const backOpacity = useSharedValue(0);
-  const backTranslateX = useSharedValue(-20);
   const titleTranslateY = useSharedValue(30);
   const titleOpacity = useSharedValue(0);
   const subtitleTranslateY = useSharedValue(24);
@@ -62,9 +73,6 @@ export default function ForgotPasswordScreen() {
   const pressScale = useSharedValue(1);
 
   useEffect(() => {
-    backOpacity.value = withTiming(1, { duration: 400 });
-    backTranslateX.value = withSpring(0, { damping: 15, stiffness: 150 });
-
     titleTranslateY.value = withDelay(
       80,
       withSpring(0, { damping: 15, stiffness: 150 })
@@ -94,21 +102,12 @@ export default function ForgotPasswordScreen() {
     );
 
     backLinkOpacity.value = withDelay(400, withTiming(1, { duration: 500 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const backAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: backOpacity.value,
-    transform: [{ translateX: backTranslateX.value }],
-  }));
 
   const titleAnimatedStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,
     transform: [{ translateY: titleTranslateY.value }],
-  }));
-
-  const subtitleAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: subtitleOpacity.value,
-    transform: [{ translateY: subtitleTranslateY.value }],
   }));
 
   const inputAnimatedStyle = useAnimatedStyle(() => ({
@@ -128,22 +127,27 @@ export default function ForgotPasswordScreen() {
     opacity: backLinkOpacity.value,
   }));
 
-  const handleReset = () => {
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email address');
-      return;
+  const onSubmit = async (data: ForgotPasswordFormData) => {
+    try {
+      await forgotPassword.mutateAsync(data);
+      Toast.show({
+        type: 'success',
+        text1: 'Check your email',
+        text2: 'If that address is registered, a reset link is on its way.',
+        position: 'top',
+        visibilityTime: 4000,
+      });
+      router.push(PublicRoutes.LOGIN);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Please try again.';
+      Toast.show({
+        type: 'error',
+        text1: 'Could not send reset link',
+        text2: message,
+        position: 'top',
+        visibilityTime: 4000,
+      });
     }
-    // TODO: Implement actual password reset logic
-    Alert.alert(
-      'Reset Link Sent',
-      'We have sent a password reset link to your email address.',
-      [
-        {
-          text: 'OK',
-          onPress: () => router.push(PublicRoutes.RESET_PASSWORD),
-        },
-      ]
-    );
   };
 
   const handlePressIn = () => {
@@ -168,7 +172,7 @@ export default function ForgotPasswordScreen() {
               Forgot Password?
             </ThemedText>
             <ThemedText style={[styles.subtitle, { color: iconColor }]}>
-              Enter your email and we'll send you a link to reset your
+              Enter your email and we&apos;ll send you a link to reset your
               password.
             </ThemedText>
           </AnimatedThemedView>
@@ -186,29 +190,45 @@ export default function ForgotPasswordScreen() {
                   },
                 ]}>
                 <Mail size={20} color={iconColor} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: textColor }]}
-                  placeholder="Enter your email"
-                  placeholderTextColor={iconColor}
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
+                <Controller
+                  control={control}
+                  name="email"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      style={[styles.input, { color: textColor }]}
+                      placeholder="Enter your email"
+                      placeholderTextColor={iconColor}
+                      value={value}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      autoCorrect={false}
+                    />
+                  )}
                 />
               </View>
+              {errors.email && (
+                <ThemedText style={styles.errorText}>{errors.email.message}</ThemedText>
+              )}
             </AnimatedThemedView>
 
             <AnimatedPressable
               style={[styles.buttonWrap, buttonAnimatedStyle]}
               onPressIn={handlePressIn}
-              onPress={handleReset}>
+              onPress={handleSubmit(onSubmit)}
+              disabled={forgotPassword.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Send reset link">
               <LinearGradient
                 colors={['#60A5FA', '#3B82F6']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.buttonGradient}>
-                <Text style={styles.buttonText}>Send Reset Link</Text>
+                <Text style={styles.buttonText}>
+                  {forgotPassword.isPending ? 'Sending...' : 'Send Reset Link'}
+                </Text>
               </LinearGradient>
             </AnimatedPressable>
 
@@ -283,6 +303,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
   buttonWrap: {
     width: '100%',

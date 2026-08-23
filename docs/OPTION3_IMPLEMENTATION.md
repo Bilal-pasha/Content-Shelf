@@ -31,7 +31,7 @@ The mobile Google Sign-In SDK:
 # Google OAuth Configuration
 # Note: For mobile-only OAuth, the callback URL is not used
 GOOGLE_CLIENT_ID=816917709083-jb0c8j5rhuloskeobklqvt9r6f6squ0e.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+GOOGLE_CLIENT_SECRET=<rotate-this-in-google-cloud-console-see-MOBILE_OAUTH_SETUP.md>
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
 
 # CORS Configuration

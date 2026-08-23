@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { httpNextPublic, httpPrivate } from '../axiosConfig';
 import {
@@ -46,7 +46,7 @@ const extractErrorMessage = (error: unknown): string => {
 class AuthService {
     /**
      * Register a new user.
-     * Extracts access & refresh tokens from Set-Cookie response headers and stores in AsyncStorage.
+     * Extracts access & refresh tokens from Set-Cookie response headers and stores via secure storage.
      */
     async register(data: RegisterRequest): Promise<ApiResponse<AuthResponse['data']>> {
         try {
@@ -69,7 +69,7 @@ class AuthService {
 
     /**
      * Login user.
-     * Extracts access & refresh tokens from Set-Cookie response headers and stores in AsyncStorage.
+     * Extracts access & refresh tokens from Set-Cookie response headers and stores via secure storage.
      */
     async login(data: LoginRequest): Promise<ApiResponse<AuthResponse['data']>> {
         try {
@@ -127,7 +127,7 @@ class AuthService {
     }
 
     /**
-     * Logout user. Calls logout API (Bearer), then clears tokens from AsyncStorage.
+     * Logout user. Calls logout API (Bearer), then clears tokens from secure storage.
      */
     async logout(): Promise<void> {
         try {
@@ -154,7 +154,7 @@ class AuthService {
 
     /**
      * Refresh access token.
-     * Sends refresh token via Cookie header, parses new tokens from Set-Cookie, stores in AsyncStorage.
+     * Sends refresh token via Cookie header, parses new tokens from Set-Cookie, stores via secure storage.
      * Prefer relying on axios 401 interceptor for automatic refresh; use this for explicit refresh.
      */
     async refreshToken(): Promise<ApiResponse<{ message: string }>> {
@@ -181,7 +181,7 @@ class AuthService {
     }
 
     /**
-     * Check if user is authenticated (Bearer token in AsyncStorage; validated via /me).
+     * Check if user is authenticated (Bearer token in secure storage; validated via /me).
      */
     async isAuthenticated(): Promise<boolean> {
         try {
@@ -248,42 +248,6 @@ export const useUserProfile = () => {
     });
 };
 
-export const useSignIn = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation<AuthResponse['data'], Error, LoginRequest>({
-        mutationFn: async (data: LoginRequest) => {
-            const response = await authService.login(data);
-            if (!response.success) throw new Error(response.message);
-            return response.data;
-        },
-        onSuccess: async () => {
-            await queryClient.fetchQuery({ queryKey: ['user'], queryFn: userProfileQueryFn });
-        },
-        onError: (error: Error) => {
-            console.error('Login error:', error);
-        },
-    });
-};
-
-export const useSignUp = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation<AuthResponse['data'], Error, RegisterRequest>({
-        mutationFn: async (data: RegisterRequest) => {
-            const response = await authService.register(data);
-            if (!response.success) throw new Error(response.message);
-            return response.data;
-        },
-        onSuccess: async () => {
-            await queryClient.fetchQuery({ queryKey: ['user'], queryFn: userProfileQueryFn });
-        },
-        onError: (error: Error) => {
-            console.error('Registration error:', error);
-        },
-    });
-};
-
 export const useForgotPassword = () => {
     return useMutation<{ message: string }, Error, ForgotPasswordRequest>({
         mutationFn: async (data: ForgotPasswordRequest) => {
@@ -314,19 +278,3 @@ export const useResetPassword = () => {
     });
 };
 
-export const useSignOut = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation<void, Error, void>({
-        mutationFn: async () => {
-            await authService.logout();
-        },
-        onSuccess: () => {
-            queryClient.removeQueries({ queryKey: ['user'] });
-        },
-        onError: (error: Error) => {
-            console.error('Logout error:', error);
-            queryClient.removeQueries({ queryKey: ['user'] });
-        },
-    });
-};

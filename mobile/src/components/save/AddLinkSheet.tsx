@@ -340,6 +340,8 @@ export function AddLinkSheet({
               <Pressable
                 onPress={onCancel}
                 hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
                 style={({ pressed }) => [
                   styles.closeBtn,
                   {
@@ -477,7 +479,7 @@ export function AddLinkSheet({
                         },
                         pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
                       ]}>
-                      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'skyblue', paddingHorizontal: 10, borderRadius: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                         <Text style={{ fontSize: tileFontSize, fontWeight: active ? '700' : '600' }}>{label}</Text>
                         {active && (
                           <View style={styles.checkWrap}>
@@ -537,7 +539,7 @@ export function AddLinkSheet({
                       <View
                         style={[styles.sourceBar, { backgroundColor: accent }]}
                       />
-                      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'skyblue', paddingHorizontal: 10, borderRadius: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                         <Text style={{ fontSize: tileFontSize, fontWeight: active ? '700' : '600' }}>{label}</Text>
                         {active && (
                           <View style={styles.checkWrap}>
@@ -803,15 +805,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryTileText: {
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  categoryTileTextActive: {
-    color: '#fff',
-    fontWeight: '700',
-  },
   sourceTile: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -829,12 +822,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 16,
     marginRight: 12,
   },
-  sourceTileText: {
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-  sourceCheck: { marginLeft: 6 },
   errorContainer: {
     padding: 14,
     borderRadius: 14,

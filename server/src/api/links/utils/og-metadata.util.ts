@@ -1,3 +1,5 @@
+import { safeFetch } from '../../../common/security/ssrf-guard';
+
 /**
  * YouTube (and Shorts) often don't expose og:image to server-side fetch.
  * Derive thumbnail from video ID when URL is youtube.com/watch, youtube.com/shorts, or youtu.be.
@@ -20,16 +22,18 @@ const BROWSER_USER_AGENT =
  * Try Instagram oEmbed for thumbnail (may still return thumbnail_url on some endpoints).
  * Falls back to extracting from HTML if oEmbed fails.
  */
-export async function getInstagramThumbnailUrl(url: string): Promise<string | null> {
+export async function getInstagramThumbnailUrl(
+  url: string,
+): Promise<string | null> {
   if (!/instagram\.com|instagr\.am/i.test(url)) return null;
-  
+
   // Try oEmbed first (works for some public posts)
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(
+    const res = await safeFetch(
       `https://api.instagram.com/oembed?url=${encodeURIComponent(url)}`,
-      { signal: controller.signal }
+      { signal: controller.signal },
     );
     clearTimeout(timeout);
     if (res.ok) {
@@ -45,20 +49,21 @@ export async function getInstagramThumbnailUrl(url: string): Promise<string | nu
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       signal: controller.signal,
       headers: {
         'User-Agent': BROWSER_USER_AGENT,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
       redirect: 'follow',
     });
     clearTimeout(timeout);
-    
+
     if (!res.ok) return null;
     const html = await res.text();
-    
+
     // Try multiple meta tag patterns
     const patterns = [
       /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
@@ -66,7 +71,7 @@ export async function getInstagramThumbnailUrl(url: string): Promise<string | nu
       /<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i,
       /<meta[^>]*property=["']og:image:secure_url["'][^>]*content=["']([^"']+)["']/i,
     ];
-    
+
     for (const pattern of patterns) {
       const match = html.match(pattern);
       if (match?.[1]) {
@@ -78,34 +83,37 @@ export async function getInstagramThumbnailUrl(url: string): Promise<string | nu
   } catch {
     // Ignore errors
   }
-  
+
   return null;
 }
 
 /**
  * Extract Facebook video thumbnail from URL or meta tags
  */
-export async function getFacebookThumbnailUrl(url: string): Promise<string | null> {
+export async function getFacebookThumbnailUrl(
+  url: string,
+): Promise<string | null> {
   if (!/facebook\.com|fb\.watch|fb\.com/i.test(url)) return null;
-  
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       signal: controller.signal,
       headers: {
         'User-Agent': BROWSER_USER_AGENT,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
       },
       redirect: 'follow',
     });
     clearTimeout(timeout);
-    
+
     if (!res.ok) return null;
     const html = await res.text();
-    
+
     // Try multiple meta tag patterns for Facebook
     const patterns = [
       /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
@@ -114,7 +122,7 @@ export async function getFacebookThumbnailUrl(url: string): Promise<string | nul
       /<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i,
       /<meta[^>]*property=["']og:video:thumbnail["'][^>]*content=["']([^"']+)["']/i,
     ];
-    
+
     for (const pattern of patterns) {
       const match = html.match(pattern);
       if (match?.[1]) {
@@ -126,33 +134,36 @@ export async function getFacebookThumbnailUrl(url: string): Promise<string | nul
   } catch {
     // Ignore errors
   }
-  
+
   return null;
 }
 
 /**
  * Extract LinkedIn video/post thumbnail from URL or meta tags
  */
-export async function getLinkedInThumbnailUrl(url: string): Promise<string | null> {
+export async function getLinkedInThumbnailUrl(
+  url: string,
+): Promise<string | null> {
   if (!/linkedin\.com/i.test(url)) return null;
-  
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       signal: controller.signal,
       headers: {
         'User-Agent': BROWSER_USER_AGENT,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
       redirect: 'follow',
     });
     clearTimeout(timeout);
-    
+
     if (!res.ok) return null;
     const html = await res.text();
-    
+
     // Try multiple meta tag patterns for LinkedIn
     const patterns = [
       /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
@@ -160,7 +171,7 @@ export async function getLinkedInThumbnailUrl(url: string): Promise<string | nul
       /<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i,
       /<meta[^>]*property=["']og:image:secure_url["'][^>]*content=["']([^"']+)["']/i,
     ];
-    
+
     for (const pattern of patterns) {
       const match = html.match(pattern);
       if (match?.[1]) {
@@ -172,7 +183,7 @@ export async function getLinkedInThumbnailUrl(url: string): Promise<string | nul
   } catch {
     // Ignore errors
   }
-  
+
   return null;
 }
 
@@ -184,13 +195,16 @@ export async function fetchOgMetadata(url: string): Promise<{
   thumbnailUrl: string | null;
   title: string | null;
 }> {
-  const result = { thumbnailUrl: null as string | null, title: null as string | null };
+  const result = {
+    thumbnailUrl: null as string | null,
+    title: null as string | null,
+  };
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       signal: controller.signal,
       headers: {
         'User-Agent': BROWSER_USER_AGENT,
@@ -207,8 +221,12 @@ export async function fetchOgMetadata(url: string): Promise<{
     const html = await res.text();
 
     const ogImageMatch =
-      html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ??
-      html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+      html.match(
+        /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
+      ) ??
+      html.match(
+        /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i,
+      );
     if (ogImageMatch?.[1]) {
       const href = ogImageMatch[1].trim();
       if (href.startsWith('http')) result.thumbnailUrl = href;
@@ -216,8 +234,12 @@ export async function fetchOgMetadata(url: string): Promise<{
     }
 
     const ogTitleMatch =
-      html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ??
-      html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
+      html.match(
+        /<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i,
+      ) ??
+      html.match(
+        /<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i,
+      );
     if (ogTitleMatch?.[1]) {
       result.title = ogTitleMatch[1].trim().slice(0, 500) || null;
     }

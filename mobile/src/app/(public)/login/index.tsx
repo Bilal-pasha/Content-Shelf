@@ -67,8 +67,6 @@ export default function LoginScreen() {
   const signInButtonOpacity = useSharedValue(0);
   const dividerOpacity = useSharedValue(0);
   const dividerScale = useSharedValue(0.8);
-  const appleButtonTranslateY = useSharedValue(30);
-  const appleButtonOpacity = useSharedValue(0);
   const googleButtonTranslateY = useSharedValue(30);
   const googleButtonOpacity = useSharedValue(0);
 
@@ -116,12 +114,6 @@ export default function LoginScreen() {
     );
 
     // Social buttons animation
-    appleButtonTranslateY.value = withDelay(
-      700,
-      withSpring(0, { damping: 15, stiffness: 150 })
-    );
-    appleButtonOpacity.value = withDelay(700, withTiming(1, { duration: 500 }));
-
     googleButtonTranslateY.value = withDelay(
       800,
       withSpring(0, { damping: 15, stiffness: 150 })
@@ -339,6 +331,8 @@ export default function LoginScreen() {
                 <Pressable
                   onPress={() => setShowPassword((prev) => !prev)}
                   hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                   style={styles.eyeButton}>
                   {showPassword ? (
                     <EyeOff size={20} color={iconColor} />
@@ -418,7 +412,7 @@ export default function LoginScreen() {
 
             {/* Sign Up Link */}
             <ThemedView style={styles.signUpContainer}>
-              <ThemedText style={styles.signUpPrompt}>Don't have an account? </ThemedText>
+              <ThemedText style={styles.signUpPrompt}>Don&apos;t have an account? </ThemedText>
               <Link href={PublicRoutes.REGISTER}>
                 <ThemedText style={[styles.signUpLinkText, { color: linkColor }]}>
                   Sign Up
@@ -532,9 +526,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  buttonPressed: {
-    opacity: 0.8,
-  },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -550,13 +541,6 @@ const styles = StyleSheet.create({
   },
   socialButtons: {
     gap: 12,
-  },
-  appleButton: {
-    backgroundColor: '#1C1C1E',
-    height: 56,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   googleButton: {
     height: 56,
@@ -574,11 +558,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  socialButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   googleButtonText: {
     fontSize: 16,

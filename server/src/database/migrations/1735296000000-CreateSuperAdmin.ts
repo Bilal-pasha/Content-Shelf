@@ -1,39 +1,25 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import { MigrationInterface } from 'typeorm';
 
+/**
+ * This migration previously seeded a super-admin account with a plaintext
+ * password committed to source control. That is a credential leak: the
+ * password lived in git history and ran in every environment migrations
+ * were applied to, including production.
+ *
+ * The seeding logic has been removed. Provision admin accounts out-of-band
+ * (a one-off script reading credentials from environment variables, run
+ * outside version control) instead of via a committed migration.
+ *
+ * If this migration already ran against an existing database, that account
+ * (bilalpasha.dev@gmail.com) still exists there with the leaked password —
+ * rotate or delete it manually.
+ */
 export class CreateSuperAdmin1735296000000 implements MigrationInterface {
-  public async up(queryRunner: QueryRunner): Promise<void> {
-    // Hash the password
-    const hashedPassword = await bcrypt.hash('Paskistan@123', 10);
-
-    // Check if user already exists
-    const existingUser = (await queryRunner.query(
-      `SELECT id FROM users WHERE email = 'bilalpasha.dev@gmail.com'`,
-    )) as Array<{ id: string }>;
-
-    if (existingUser.length === 0) {
-      // Insert super admin user
-      await queryRunner.query(
-        `INSERT INTO users (id, name, email, password, role, avatar, created_at, updated_at)
-         VALUES (
-           gen_random_uuid(),
-           'Bilal Pasha',
-           'bilalpasha.dev@gmail.com',
-           $1,
-           'super_admin',
-           NULL,
-           NOW(),
-           NOW()
-         )`,
-        [hashedPassword],
-      );
-    }
+  public async up(): Promise<void> {
+    // Intentional no-op — see class comment above.
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    // Remove super admin user
-    await queryRunner.query(
-      `DELETE FROM users WHERE email = 'bilalpasha.dev@gmail.com'`,
-    );
+  public async down(): Promise<void> {
+    // Intentional no-op — nothing to revert.
   }
 }

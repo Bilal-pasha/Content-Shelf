@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "VideoVault",
-    "slug": "video-mobile-application",
+    "slug": "video-vault",
     "version": "1.0.0",
     "scheme": "video-mobile-application",
     "web": {
@@ -40,11 +40,12 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.816917709083-lv7rhclh5jt9pa9c6al8666nbv1d49fp"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "orientation": "portrait",
     "icon": "./src/assets/images/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./src/assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -108,9 +109,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "9fe4a6a9-8c26-45dc-913b-0a395233b9c6"
+        "projectId": "7e43e1ae-78b4-4918-80cc-17ced86cef0d"
       }
     },
-    "owner": "bilal_pasha"
+    "owner": "karakexpress"
   }
 }

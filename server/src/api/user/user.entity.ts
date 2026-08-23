@@ -32,11 +32,39 @@ export class User {
   })
   role: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true, name: 'oauth_provider' })
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    name: 'oauth_provider',
+  })
   oauthProvider: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'oauth_id' })
   oauthId: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'current_refresh_token_hash',
+  })
+  currentRefreshTokenHash: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'password_reset_token_hash',
+  })
+  passwordResetTokenHash: string | null;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'password_reset_token_expires_at',
+  })
+  passwordResetTokenExpiresAt: Date | null;
 
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;

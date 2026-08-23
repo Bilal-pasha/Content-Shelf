@@ -21,7 +21,6 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  pendingOtpEmail: string | null;
 }
 
 export interface AuthContextType extends AuthState {
@@ -35,7 +34,6 @@ export interface AuthContextType extends AuthState {
   fetchUserStatus: () => Promise<User | null>;
   clearError: () => void;
   updateUserProfile: (userData: Partial<User>) => void;
-  clearPendingOtp: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,7 +48,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: false,
     isLoading: true,
     error: null,
-    pendingOtpEmail: null,
   });
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -79,7 +76,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: !!user,
         isLoading: false,
         error: null,
-        pendingOtpEmail: null,
       });
 
       if (user) {
@@ -96,7 +92,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: false,
         isLoading: false,
         error: null,
-        pendingOtpEmail: null,
       });
       queryClient.removeQueries({ queryKey: ['user'] });
       return null;
@@ -196,7 +191,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: false,
         isLoading: false,
         error: null,
-        pendingOtpEmail: null,
       });
 
       router.replace(PublicRoutes.LOGIN);
@@ -206,7 +200,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: false,
         isLoading: false,
         error: null,
-        pendingOtpEmail: null,
       });
       queryClient.removeQueries({ queryKey: ['user'] });
       router.replace(PublicRoutes.LOGIN);
@@ -215,10 +208,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const clearError = useCallback(() => {
     setState((prev) => ({ ...prev, error: null }));
-  }, []);
-
-  const clearPendingOtp = useCallback(() => {
-    setState((prev) => ({ ...prev, pendingOtpEmail: null }));
   }, []);
 
   const updateUserProfile = useCallback((userData: Partial<User>) => {
@@ -241,7 +230,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     fetchUserStatus,
     clearError,
     updateUserProfile,
-    clearPendingOtp,
   };
 
   return (

@@ -8,7 +8,14 @@ import {
 } from 'typeorm';
 import { User } from '../user/user.entity';
 
-export type LinkSource = 'instagram' | 'facebook' | 'twitter' | 'tiktok' | 'youtube' | 'linkedin' | 'other';
+export type LinkSource =
+  | 'instagram'
+  | 'facebook'
+  | 'twitter'
+  | 'tiktok'
+  | 'youtube'
+  | 'linkedin'
+  | 'other';
 
 @Entity('links')
 export class Link {
@@ -38,7 +45,12 @@ export class Link {
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'category' })
   category: string | null;
 
-  @Column({ type: 'varchar', length: 2048, nullable: true, name: 'thumbnail_url' })
+  @Column({
+    type: 'varchar',
+    length: 2048,
+    nullable: true,
+    name: 'thumbnail_url',
+  })
   thumbnailUrl: string | null;
 
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })

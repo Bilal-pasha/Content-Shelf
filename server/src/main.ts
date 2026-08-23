@@ -16,9 +16,12 @@ import {
 } from './common/constants/app.constants';
 import { Logger } from 'nestjs-pino';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as path from 'path';
 import * as fs from 'fs';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -81,12 +84,18 @@ async function bootstrap(): Promise<void> {
   );
 
   app.use(cookieParser());
+  app.use(helmet());
 
   app.enableCors({
     origin: CORS_CONFIG.ORIGIN,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: CORS_CONFIG.CREDENTIALS,
   });
+
+  app.useGlobalFilters(new HttpExceptionFilter(logger));
+  app.useGlobalInterceptors(new ResponseInterceptor());
+
+  app.enableShutdownHooks();
 
   await app.listen(port, '0.0.0.0');
 

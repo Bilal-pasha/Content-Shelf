@@ -69,4 +69,3 @@ export function clearAuthCookies(res: Response): void {
   res.clearCookie(COOKIE_NAMES.ACCESS_TOKEN, { path: '/' });
   res.clearCookie(COOKIE_NAMES.REFRESH_TOKEN, { path: '/' });
 }
-

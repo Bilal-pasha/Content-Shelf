@@ -1,5 +1,12 @@
 # Mobile-Only Google OAuth Setup
 
+> **⚠️ SECURITY NOTICE:** An earlier version of this document contained a real
+> Google OAuth client secret in plaintext. That secret is compromised (it's
+> in git history) and **must be rotated in the Google Cloud Console**
+> (APIs & Services → Credentials → regenerate the client secret) before this
+> app is trusted in production. This document now uses placeholders only —
+> never put a real secret in a committed file.
+
 This guide is specifically for setting up Google OAuth for **mobile apps only** when your backend is deployed on a server with an IP address (not a domain).
 
 ## The Challenge
@@ -46,18 +53,20 @@ Google OAuth doesn't allow raw IP addresses in redirect URIs. However, for mobil
 
 ## Your Current Setup
 
-### Backend (Deployed at 18.212.234.107)
+### Backend
 ```env
-GOOGLE_CLIENT_ID=816917709083-jb0c8j5rhuloskeobklqvt9r6f6squ0e.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
-GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
-CORS_ORIGIN=*
+GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:8000/api/auth/google/callback
+# Explicit allowlist required — the server refuses a wildcard origin
+# combined with credentialed cookies (see server/src/common/constants/app.constants.ts)
+CORS_ORIGIN=https://your-frontend-domain
 ```
 
 ### Mobile App
 ```env
-EXPO_PUBLIC_API_URL=http://18.212.234.107
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=816917709083-jb0c8j5rhuloskeobklqvt9r6f6squ0e.apps.googleusercontent.com
+EXPO_PUBLIC_API_URL=https://your-api-domain
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
 ```
 
 ## Google Cloud Console Configuration
@@ -80,8 +89,8 @@ You need **TWO** client IDs:
   http://localhost:3000/api/auth/google/callback
   ```
   *(This won't be used by mobile, but Google requires it)*
-- **Client ID**: `816917709083-jb0c8j5rhuloskeobklqvt9r6f6squ0e.apps.googleusercontent.com`
-- **Client Secret**: `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`
+- **Client ID**: `your-web-client-id.apps.googleusercontent.com`
+- **Client Secret**: stored only in your deployment's secret manager / `.env` (never committed)
 
 #### Android Client (For Android App)
 - **Type**: Android
@@ -106,15 +115,15 @@ You need **TWO** client IDs:
 ### Backend `.env` (at server root)
 ```env
 NODE_ENV=production
-SERVER_PORT=3000
+SERVER_PORT=8000
 
 # Google OAuth - Mobile Only
-GOOGLE_CLIENT_ID=816917709083-jb0c8j5rhuloskeobklqvt9r6f6squ0e.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
-GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:8000/api/auth/google/callback
 
-# CORS - Allow mobile app requests
-CORS_ORIGIN=*
+# CORS - explicit allowlist, no wildcard (see security notice above)
+CORS_ORIGIN=https://your-frontend-domain
 
 # Frontend URL
 FRONTEND_URL=http://18.212.234.107
@@ -220,7 +229,9 @@ CORS_ORIGIN=*
 - ID tokens are verified server-side
 - Tokens are short-lived
 - Client secret is never exposed to mobile app
-- JWT tokens stored securely in AsyncStorage
+- JWT tokens are stored via `expo-secure-store` (iOS Keychain / Android
+  Keystore) — earlier versions of this doc and the app used AsyncStorage,
+  which is **not** encrypted at rest; that has been fixed
 
 ### ⚠️ Important Notes
 1. **Never commit `.env` files** - they contain secrets

@@ -1,11 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   StyleSheet,
-  ScrollView,
   Linking,
   ActivityIndicator,
-  View,
   useWindowDimensions,
+  Alert,
+  FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -16,7 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuth } from '@/providers/AuthProvider';
 import { useLinks } from '@/services/links/links.services';
-import type { LinkSource, LinkCategory } from '@/services/links/links.types';
+import type { LinkSource, LinkCategory, SavedLink } from '@/services/links/links.types';
 import { PrivateRoutes } from '@/constants/routes';
 
 import {
@@ -29,7 +29,8 @@ import { DashboardSearch } from '@/components/dashboard/DashboardSearch';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { VideoBox } from '@/components/dashboard/VideoBox';
 import { EmptyState } from '@/components/dashboard/EmptyState';
-import React from 'react';
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export default function DashboardScreen() {
   const { width } = useWindowDimensions();
@@ -37,8 +38,14 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [source, setSource] = useState<'' | LinkSource>('');
   const [category, setCategory] = useState<'' | LinkCategory>('');
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   const columns = getColumns(width);
   const cardWidth =
@@ -61,7 +68,7 @@ export default function DashboardScreen() {
   );
 
   const { data: links = [], isLoading } = useLinks({
-    search: search.trim() || undefined,
+    search: debouncedSearch.trim() || undefined,
     source: source || undefined,
     category: category || undefined,
   });
@@ -74,85 +81,108 @@ export default function DashboardScreen() {
     router.push(PrivateRoutes.PROFILE);
   }, [router]);
 
+  const handleSignOut = useCallback(() => {
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
+    ]);
+  }, [signOut]);
+
   const hasFilters = Boolean(search.trim() || source || category);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: SavedLink; index: number }) => (
+      <ThemedView
+        style={{
+          marginBottom: CARD_GAP,
+          paddingHorizontal: columns === 1 ? HORZ_PADDING : 0,
+        }}>
+        <VideoBox
+          item={item}
+          index={index}
+          cardWidth={cardWidth}
+          placeholderBg={placeholderBg}
+          iconColor={iconColor}
+          onPress={() => handleOpenLink(item.url)}
+        />
+      </ThemedView>
+    ),
+    [cardWidth, columns, placeholderBg, iconColor, handleOpenLink],
+  );
 
   return (
     <ThemedView
       style={[styles.container, { backgroundColor, paddingTop: insets.top || 40 }]}>
-      <ScrollView
+      <FlatList
+        key={columns}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <DashboardHeader
-          userEmail={user?.email}
-          iconColor={iconColor}
-          inputBg={inputBg}
-          onNotificationPress={() => { }}
-          onSignOut={signOut}
-          onAvatarPress={handleAvatarPress}
-        />
+        showsVerticalScrollIndicator={false}
+        data={links}
+        keyExtractor={(item) => item.id}
+        numColumns={columns}
+        columnWrapperStyle={
+          columns > 1 ? { gap: CARD_GAP, paddingHorizontal: HORZ_PADDING } : undefined
+        }
+        renderItem={renderItem}
+        ListHeaderComponent={
+          <>
+            <DashboardHeader
+              userEmail={user?.email}
+              iconColor={iconColor}
+              inputBg={inputBg}
+              onSignOut={handleSignOut}
+              onAvatarPress={handleAvatarPress}
+            />
 
-        <DashboardSearch
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search videos..."
-          textColor={textColor}
-          iconColor={iconColor}
-          inputBg={inputBg}
-        />
+            <DashboardSearch
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search videos..."
+              textColor={textColor}
+              iconColor={iconColor}
+              inputBg={inputBg}
+            />
 
-        <DashboardFilters
-          source={source}
-          category={category}
-          onSourceChange={setSource}
-          onCategoryChange={setCategory}
-          iconColor={iconColor}
-        />
+            <DashboardFilters
+              source={source}
+              category={category}
+              onSourceChange={setSource}
+              onCategoryChange={setCategory}
+              iconColor={iconColor}
+            />
 
-        <Animated.View
-          entering={FadeIn.delay(200).duration(400)}
-          style={styles.sectionHeader}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Saved videos
-          </ThemedText>
-          <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
-            {links.length} {links.length === 1 ? 'video' : 'videos'}
-          </ThemedText>
-        </Animated.View>
+            <Animated.View
+              entering={FadeIn.delay(200).duration(400)}
+              style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Saved videos
+              </ThemedText>
+              <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
+                {links.length} {links.length === 1 ? 'video' : 'videos'}
+              </ThemedText>
+            </Animated.View>
 
-        {isLoading ? (
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            style={styles.loading}>
-            <ActivityIndicator size="large" color="#2563EB" />
-          </Animated.View>
-        ) : links.length === 0 ? (
-          <EmptyState
-            hasFilters={hasFilters}
-            borderColor={borderColor}
-            iconColor={iconColor}
-          />
-        ) : (
-          <View
-            style={[
-              styles.grid,
-              { gap: CARD_GAP, paddingHorizontal: HORZ_PADDING },
-            ]}>
-            {links.map((item, index) => (
-              <VideoBox
-                key={item.id}
-                item={item}
-                index={index}
-                cardWidth={cardWidth}
-                placeholderBg={placeholderBg}
-                iconColor={iconColor}
-                onPress={() => handleOpenLink(item.url)}
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+            {isLoading && (
+              <Animated.View
+                entering={FadeIn.duration(300)}
+                style={styles.loading}>
+                <ActivityIndicator size="large" color="#2563EB" />
+              </Animated.View>
+            )}
+          </>
+        }
+        ListEmptyComponent={
+          !isLoading ? (
+            <EmptyState
+              hasFilters={hasFilters}
+              borderColor={borderColor}
+              iconColor={iconColor}
+            />
+          ) : null
+        }
+      />
     </ThemedView>
   );
 }
@@ -171,9 +201,4 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '600' },
   sectionCount: { fontSize: 14 },
   loading: { paddingVertical: 48, alignItems: 'center' },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingBottom: 24,
-  },
 });

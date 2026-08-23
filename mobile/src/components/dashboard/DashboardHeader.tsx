@@ -1,5 +1,5 @@
-import { View, Pressable, StyleSheet } from 'react-native';
-import { User, Bell, LogOut } from 'lucide-react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { User, LogOut } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,14 +10,12 @@ export function DashboardHeader({
   userEmail,
   iconColor,
   inputBg,
-  onNotificationPress,
   onSignOut,
   onAvatarPress,
 }: {
   userEmail: string | undefined;
   iconColor: string;
   inputBg: string;
-  onNotificationPress: () => void;
   onSignOut: () => void;
   onAvatarPress: () => void;
 }) {
@@ -28,6 +26,8 @@ export function DashboardHeader({
           <Pressable
             onPress={onAvatarPress}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
             style={[styles.avatar, { backgroundColor: inputBg }]}>
             <User size={20} color={iconColor} />
           </Pressable>
@@ -44,11 +44,9 @@ export function DashboardHeader({
           <Pressable
             style={styles.iconButton}
             hitSlop={12}
-            onPress={onNotificationPress}
-          >
-            <Bell size={22} color={iconColor} />
-          </Pressable>
-          <Pressable style={styles.iconButton} hitSlop={12} onPress={onSignOut}>
+            onPress={onSignOut}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out">
             <LogOut size={22} color={iconColor} />
           </Pressable>
         </ThemedView>

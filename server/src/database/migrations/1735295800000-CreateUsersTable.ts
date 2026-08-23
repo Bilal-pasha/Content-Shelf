@@ -73,4 +73,3 @@ export class CreateUsersTable1735295800000 implements MigrationInterface {
     await queryRunner.dropTable('users', true);
   }
 }
-

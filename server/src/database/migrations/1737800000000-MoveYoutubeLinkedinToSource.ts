@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class MoveYoutubeLinkedinToSource1737800000000
-  implements MigrationInterface
-{
+export class MoveYoutubeLinkedinToSource1737800000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Move records with category='youtube' to source='youtube' and category=null
     await queryRunner.query(`

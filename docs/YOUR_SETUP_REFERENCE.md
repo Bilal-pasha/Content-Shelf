@@ -8,7 +8,7 @@
 
 ### Google OAuth Credentials
 - **Web Client ID**: `816917709083-jb0c8j5rhuloskeobklqvt9r6f6squ0e.apps.googleusercontent.com`
-- **Client Secret**: `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`
+- **Client Secret**: `<rotate-this-in-google-cloud-console-see-MOBILE_OAUTH_SETUP.md>`
 
 ### Package Names
 - **Android**: `com.bilal_pasha.videomobileapplication`
@@ -27,7 +27,7 @@ Go to: [Google Cloud Console - Credentials](https://console.cloud.google.com/api
 
 **Credentials** (already created):
 - Client ID: `816917709083-jb0c8j5rhuloskeobklqvt9r6f6squ0e.apps.googleusercontent.com`
-- Client Secret: `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`
+- Client Secret: `<rotate-this-in-google-cloud-console-see-MOBILE_OAUTH_SETUP.md>`
 
 ### 2. Create Android OAuth Client
 
@@ -61,7 +61,7 @@ Copy the SHA-1 fingerprint and paste it in Google Console.
 ```env
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID=816917709083-jb0c8j5rhuloskeobklqvt9r6f6squ0e.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+GOOGLE_CLIENT_SECRET=<rotate-this-in-google-cloud-console-see-MOBILE_OAUTH_SETUP.md>
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
 
 # CORS Configuration

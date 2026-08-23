@@ -1,5 +1,10 @@
 import { Controller, Post, Get, Body, UseGuards, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/user.entity';
@@ -41,11 +46,15 @@ export class LinksController {
     @Query('search') search?: string,
     @Query('source') source?: string,
     @Query('category') category?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ): Promise<{ success: boolean; message: string; data: LinkResponseDto[] }> {
     const links = await this.linksService.findAll(user.id, {
       search,
       source: source as LinkSource | undefined,
       category,
+      limit: limit !== undefined ? Number(limit) : undefined,
+      offset: offset !== undefined ? Number(offset) : undefined,
     });
     return {
       success: true,

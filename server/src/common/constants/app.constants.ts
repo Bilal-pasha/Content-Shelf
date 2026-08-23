@@ -1,7 +1,15 @@
 export const DEFAULT_PORT = 8000;
 
+// Fail closed: an explicit, comma-separated allowlist only. Never reflect an
+// arbitrary Origin back with credentials enabled — that combination lets any
+// site make authenticated requests using the visitor's cookies.
+const allowedOrigins = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 export const CORS_CONFIG = {
-  ORIGIN: process.env.CORS_ORIGIN || true,
+  ORIGIN: allowedOrigins,
   CREDENTIALS: true,
 };
 

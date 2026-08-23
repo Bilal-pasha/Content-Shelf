@@ -8,10 +8,7 @@ export const API_ENDPOINTS = {
   AUTH_PASSWORD: '/v1/api/auth/password',
   AUTH_FORGOT_PASSWORD: '/v1/api/auth/forgot-password',
   AUTH_RESET_PASSWORD: '/v1/api/auth/reset-password',
-  AUTH_VERIFY_OTP: '/v1/api/auth/verify-otp',
-  AUTH_RESEND_OTP: '/v1/api/auth/resend-otp',
   AUTH_SOCIAL_GOOGLE: '/v1/api/auth/google',
-  AUTH_COMPLETE_PROFILE: '/v1/api/auth/complete-profile',
   LINKS: '/v1/api/links',
   LINKS_LIST: '/v1/api/links',
 } as const;

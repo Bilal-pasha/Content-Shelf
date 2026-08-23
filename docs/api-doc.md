@@ -1,18 +1,36 @@
 # API Documentation
 
+The authoritative, always-up-to-date API reference is the live Swagger UI,
+generated directly from the route/DTO decorators in `server/src/api/**`:
+
+- Development: `http://localhost:8000/api`
+- Production: `<your deployed domain>/api`
+
+This file previously duplicated the endpoint list by hand and drifted out of
+sync with the real routes (missing the `/v1` version prefix, showing tokens
+in the JSON body when they're actually set as HTTP-only cookies, missing
+endpoints entirely). Rather than re-introduce that drift, this file stays a
+short, manually-checked summary — for exact request/response shapes, use
+Swagger.
+
 ## Base URL
-- Development: `http://localhost:3000`
+
+All routes are versioned via URI prefix: `/v1/api/...`.
+
+- Development: `http://localhost:8000/v1/api`
 - Production: TBD
 
 ## Authentication
-All protected endpoints require a Bearer token in the Authorization header:
-```
-Authorization: Bearer <token>
-```
 
-## Response Format
+Access and refresh tokens are set as HTTP-only cookies on
+register/login/refresh/Google auth (`access_token`, `refresh_token`). Mobile
+clients that can't rely on cookies may instead send
+`Authorization: Bearer <access_token>`, and pass the refresh token in the
+request body to `POST /auth/token/refresh`.
 
-### Success Response
+## Response format
+
+### Success
 ```json
 {
   "success": true,
@@ -21,147 +39,30 @@ Authorization: Bearer <token>
 }
 ```
 
-### Error Response
+### Error
 ```json
 {
   "success": false,
   "message": "Error message",
-  "errors": {
-    "field": ["Error message"]
-  },
+  "errors": ["..."],
   "statusCode": 400
 }
 ```
+Both shapes are enforced globally (`ResponseInterceptor` / `HttpExceptionFilter`
+in `server/src/common/`), not per-controller.
 
-## Endpoints
+## Endpoints (see Swagger for full request/response schemas)
 
-### Authentication
+### Auth — `/v1/api/auth`
+- `POST /signup`, `POST /login`, `POST /token/refresh`, `POST /logout`
+- `GET /me`, `PUT /profile`, `PUT /password`
+- `POST /forgot-password`, `POST /reset-password`
+- `POST /google`
 
-#### Register User
-**POST** `/api/auth/signup`
+### Links — `/v1/api/links`
+- `POST /` — save a link
+- `GET /?search=&source=&category=&limit=&offset=` — list the current user's
+  saved links (paginated, `limit` capped at 100)
 
-**Request Body:**
-```json
-{
-  "name": "John Doe",
-  "email": "john.doe@example.com",
-  "password": "SecurePass123!"
-}
-```
-
-**Validation Rules:**
-- `name`: Required, 2-100 characters
-- `email`: Required, valid email format
-- `password`: Required, minimum 8 characters, must contain:
-  - At least one uppercase letter
-  - At least one lowercase letter
-  - At least one number
-  - At least one special character
-
-**Response:** `201 Created`
-```json
-{
-  "success": true,
-  "message": "Account created successfully",
-  "data": {
-    "user": {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "name": "John Doe",
-      "email": "john.doe@example.com",
-      "avatar": null,
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "updatedAt": "2024-01-01T00:00:00.000Z"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-**Error Responses:**
-- `409 Conflict`: User with this email already exists
-- `400 Bad Request`: Validation errors
-
----
-
-#### Login User
-**POST** `/api/auth/login`
-
-**Request Body:**
-```json
-{
-  "email": "john.doe@example.com",
-  "password": "SecurePass123!"
-}
-```
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "data": {
-    "user": {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "name": "John Doe",
-      "email": "john.doe@example.com",
-      "avatar": null,
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "updatedAt": "2024-01-01T00:00:00.000Z"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-**Error Responses:**
-- `401 Unauthorized`: Invalid email or password
-- `400 Bad Request`: Validation errors
-
----
-
-#### Get Current User
-**GET** `/api/auth/me`
-
-**Headers:**
-```
-Authorization: Bearer <token>
-```
-
-**Response:** `200 OK`
-```json
-{
-  "success": true,
-  "message": "User retrieved successfully",
-  "data": {
-    "user": {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "name": "John Doe",
-      "email": "john.doe@example.com",
-      "avatar": null,
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "updatedAt": "2024-01-01T00:00:00.000Z"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-**Error Responses:**
-- `401 Unauthorized`: Invalid or missing token
-
----
-
-## Status Codes
-
-- `200 OK`: Request successful
-- `201 Created`: Resource created successfully
-- `400 Bad Request`: Validation error or bad request
-- `401 Unauthorized`: Authentication required or invalid credentials
-- `403 Forbidden`: Insufficient permissions
-- `404 Not Found`: Resource not found
-- `409 Conflict`: Resource conflict (e.g., duplicate email)
-- `500 Internal Server Error`: Server error
-
+### Health
+- `GET /health` — checks the database connection; returns 503 if it's down.

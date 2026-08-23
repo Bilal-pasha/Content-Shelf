@@ -17,7 +17,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: Request) => {
           // Try to extract from cookie first
-          const token = request?.cookies?.[COOKIE_NAMES.ACCESS_TOKEN];
+          const cookies = request?.cookies as
+            | Record<string, string>
+            | undefined;
+          const token = cookies?.[COOKIE_NAMES.ACCESS_TOKEN];
           if (token) {
             return token;
           }
@@ -26,7 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET', 'your-secret-key'),
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });
   }
 
