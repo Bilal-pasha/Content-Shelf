@@ -40,7 +40,7 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
-  OPENAI_API_KEY?: string;
+  DEEPINFRA_API_KEY?: string;
 }
 
 /**

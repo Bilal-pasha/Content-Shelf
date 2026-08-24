@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-const OPENAI_EMBEDDINGS_URL = 'https://api.openai.com/v1/embeddings';
+const EMBEDDING_MODEL = 'Qwen/Qwen3-Embedding-8B';
+const DEEPINFRA_EMBEDDINGS_URL =
+  'https://api.deepinfra.com/v1/openai/embeddings';
 
 @Injectable()
 export class EmbeddingService {
@@ -14,11 +15,11 @@ export class EmbeddingService {
   ) {}
 
   async embed(text: string): Promise<number[] | null> {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const apiKey = this.configService.get<string>('DEEPINFRA_API_KEY');
     if (!apiKey) return null;
 
     try {
-      const response = await fetch(OPENAI_EMBEDDINGS_URL, {
+      const response = await fetch(DEEPINFRA_EMBEDDINGS_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
