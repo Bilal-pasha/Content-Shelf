@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Check } from 'lucide-react-native';
 
@@ -21,13 +22,16 @@ export type ChipProps = {
 export function Chip({ label, selected, onPress, accentColor, showCheck = true, style }: ChipProps) {
   const { colors, radius, spacing, typography } = useAppTheme();
   const accent = accentColor ?? colors.primary;
+  const [pressed, setPressed] = useState(false);
 
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         {
           borderRadius: radius.md,

@@ -25,7 +25,7 @@ export function FiltersSheet({
   onClear: () => void;
   onClose: () => void;
 }) {
-  const { colors, spacing, radius, typography } = useAppTheme();
+  const { colors, spacing, radius, typography, shadow, isDark } = useAppTheme();
   const hasFilters = Boolean(source || category);
 
   const select = (fn: () => void) => {
@@ -36,7 +36,10 @@ export function FiltersSheet({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.45)' }]}
+          onPress={onClose}
+        />
         <View
           style={[
             styles.sheet,
@@ -45,10 +48,12 @@ export function FiltersSheet({
               borderColor: colors.border,
               borderTopLeftRadius: radius.xl,
               borderTopRightRadius: radius.xl,
-              paddingTop: spacing.xl,
+              paddingTop: spacing.md,
               paddingBottom: spacing.xxl,
+              ...shadow.sheet,
             },
           ]}>
+          <View style={[styles.dragHandle, { backgroundColor: colors.border, marginBottom: spacing.lg }]} />
           <View style={[styles.header, { paddingHorizontal: spacing.xxl, marginBottom: spacing.lg }]}>
             <Text style={{ color: colors.text, fontSize: typography.xl.fontSize, fontWeight: typography.xl.fontWeight }}>
               Filters
@@ -122,6 +127,12 @@ const styles = StyleSheet.create({
   sheet: {
     borderWidth: 1,
     borderBottomWidth: 0,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',

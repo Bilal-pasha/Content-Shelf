@@ -62,7 +62,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.video-mobile-application.app",
+      "bundleIdentifier": "com.stackeylabs.contentshelf",
       "associatedDomains": [
         "applinks:content-shelf.stackeylabs.com"
       ],
@@ -76,7 +76,7 @@
         "backgroundImage": "./src/assets/images/android-icon-background.png",
         "monochromeImage": "./src/assets/images/android-icon-monochrome.png"
       },
-      "package": "com.bilal_pasha.videomobileapplication",
+      "package": "com.stackeylabs.contentshelf",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"

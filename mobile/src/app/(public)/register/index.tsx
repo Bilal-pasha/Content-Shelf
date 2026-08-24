@@ -32,6 +32,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const googleSignIn = useGoogleSignIn();
   const { colors, spacing, typography } = useAppTheme();
+  const [googlePressed, setGooglePressed] = useState(false);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -87,7 +88,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <AuthLayout title="Create Account" subtitle="Start your journey with us">
+    <AuthLayout title="Create Account" subtitle="Start your journey with us" centered showBack={false}>
       <Controller
         control={control}
         name="name"
@@ -175,8 +176,10 @@ export default function RegisterScreen() {
 
       <Pressable
         onPress={handleGoogleLogin}
+        onPressIn={() => setGooglePressed(true)}
+        onPressOut={() => setGooglePressed(false)}
         disabled={googleSignIn.isPending}
-        style={({ pressed }) => [
+        style={[
           styles.googleButton,
           {
             borderColor: colors.border,
@@ -184,7 +187,7 @@ export default function RegisterScreen() {
             borderRadius: 12,
             gap: spacing.sm,
             marginBottom: spacing.xxl,
-            opacity: pressed ? 0.85 : googleSignIn.isPending ? 0.6 : 1,
+            opacity: googlePressed ? 0.85 : googleSignIn.isPending ? 0.6 : 1,
           },
         ]}>
         <GoogleIcon width={20} height={20} />

@@ -12,11 +12,11 @@ const primaryDark = '#60A5FA';
 
 export const Colors = {
   light: {
-    background: '#FFFFFF',
-    surface: '#F7F8F9',
+    background: '#F7F8FA',
+    surface: '#EEF0F3',
     surfaceElevated: '#FFFFFF',
-    border: '#E5E7EB',
-    borderSubtle: '#F0F1F3',
+    border: '#D8DCE2',
+    borderSubtle: '#E8EAED',
     text: '#11181C',
     textMuted: '#6B7280',
     textInverse: '#FFFFFF',

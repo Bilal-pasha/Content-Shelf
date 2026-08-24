@@ -7,6 +7,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -14,8 +16,8 @@ import Animated, {
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const BRAND_BG = '#2563EB';
-const MIN_DISPLAY_MS = 1700;
-const EXIT_DURATION_MS = 380;
+const MIN_DISPLAY_MS = 1100;
+const EXIT_DURATION_MS = 320;
 
 interface AnimatedSplashScreenProps {
   /** Flip to true once the app has finished its real startup work (auth check, etc). */
@@ -37,21 +39,18 @@ export function AnimatedSplashScreen({
   const shownAtRef = useRef<number | null>(null);
   const exitStartedRef = useRef(false);
 
-  const ring1Scale = useSharedValue(0.6);
-  const ring1Opacity = useSharedValue(0.8);
-  const ring2Scale = useSharedValue(0.6);
-  const ring2Opacity = useSharedValue(0.7);
-  const logoScale = useSharedValue(0.7);
-  const logoOpacity = useSharedValue(0);
-  const titleTranslateY = useSharedValue(16);
+  const pulseScale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(0.5);
+  const logoScale = useSharedValue(0.85);
+  const logoOpacity = useSharedValue(0.4);
+  const titleTranslateY = useSharedValue(10);
   const titleOpacity = useSharedValue(0);
-  const taglineOpacity = useSharedValue(0);
-  const progressWidth = useSharedValue(0);
   const overlayOpacity = useSharedValue(1);
   const overlayScale = useSharedValue(1);
 
-  // Swap the native splash for this overlay as soon as we can paint —
-  // both use the same background + mark, so the handoff is invisible.
+  // Swap the native splash for this overlay as soon as we can paint — both
+  // start from the same icon at near-full opacity/scale, so the handoff
+  // reads as one continuous motion instead of a native-splash-then-blank gap.
   useEffect(() => {
     SplashScreen.hideAsync()
       .catch(() => {})
@@ -64,42 +63,28 @@ export function AnimatedSplashScreen({
   useEffect(() => {
     if (!nativeHidden) return;
 
-    ring1Scale.value = withTiming(1.8, {
-      duration: 900,
-      easing: Easing.out(Easing.ease),
-    });
-    ring1Opacity.value = withTiming(0, {
-      duration: 900,
-      easing: Easing.out(Easing.ease),
-    });
+    logoScale.value = withSpring(1, { damping: 13, stiffness: 180 });
+    logoOpacity.value = withTiming(1, { duration: 260 });
 
-    ring2Scale.value = withDelay(
-      150,
-      withTiming(1.8, { duration: 900, easing: Easing.out(Easing.ease) })
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.6, { duration: 1100, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 0 }),
+      ),
+      -1,
+      false,
     );
-    ring2Opacity.value = withDelay(
-      150,
-      withTiming(0, { duration: 900, easing: Easing.out(Easing.ease) })
+    pulseOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0, { duration: 1100, easing: Easing.out(Easing.ease) }),
+        withTiming(0.5, { duration: 0 }),
+      ),
+      -1,
+      false,
     );
 
-    logoScale.value = withDelay(
-      100,
-      withSpring(1, { damping: 14, stiffness: 160 })
-    );
-    logoOpacity.value = withDelay(100, withTiming(1, { duration: 450 }));
-
-    titleTranslateY.value = withDelay(
-      500,
-      withSpring(0, { damping: 16, stiffness: 160 })
-    );
-    titleOpacity.value = withDelay(500, withTiming(1, { duration: 400 }));
-
-    taglineOpacity.value = withDelay(750, withTiming(1, { duration: 400 }));
-
-    progressWidth.value = withDelay(
-      650,
-      withTiming(100, { duration: 900, easing: Easing.out(Easing.cubic) })
-    );
+    titleTranslateY.value = withDelay(160, withSpring(0, { damping: 15, stiffness: 180 }));
+    titleOpacity.value = withDelay(160, withTiming(1, { duration: 320 }));
   }, [nativeHidden]);
 
   const beginExit = useCallback(() => {
@@ -108,11 +93,11 @@ export function AnimatedSplashScreen({
 
     overlayOpacity.value = withTiming(0, { duration: EXIT_DURATION_MS });
     overlayScale.value = withTiming(
-      1.05,
+      1.04,
       { duration: EXIT_DURATION_MS, easing: Easing.in(Easing.ease) },
       (finished) => {
         if (finished) runOnJS(setOverlayMounted)(false);
-      }
+      },
     );
   }, []);
 
@@ -128,13 +113,9 @@ export function AnimatedSplashScreen({
     return () => clearTimeout(timer);
   }, [nativeHidden, ready, beginExit]);
 
-  const ring1Style = useAnimatedStyle(() => ({
-    opacity: ring1Opacity.value,
-    transform: [{ scale: ring1Scale.value }],
-  }));
-  const ring2Style = useAnimatedStyle(() => ({
-    opacity: ring2Opacity.value,
-    transform: [{ scale: ring2Scale.value }],
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: pulseOpacity.value,
+    transform: [{ scale: pulseScale.value }],
   }));
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
@@ -143,12 +124,6 @@ export function AnimatedSplashScreen({
   const titleStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,
     transform: [{ translateY: titleTranslateY.value }],
-  }));
-  const taglineStyle = useAnimatedStyle(() => ({
-    opacity: taglineOpacity.value,
-  }));
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value}%`,
   }));
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
@@ -163,8 +138,7 @@ export function AnimatedSplashScreen({
           style={[styles.overlay, overlayStyle]}
           pointerEvents="none">
           <View style={styles.center}>
-            <Animated.View style={[styles.ring, ring1Style]} />
-            <Animated.View style={[styles.ring, ring2Style]} />
+            <Animated.View style={[styles.ring, pulseStyle]} />
 
             <Animated.View style={logoStyle}>
               <Image
@@ -177,13 +151,6 @@ export function AnimatedSplashScreen({
             <Animated.Text style={[styles.title, titleStyle]}>
               Content Shelf
             </Animated.Text>
-            <Animated.Text style={[styles.tagline, taglineStyle]}>
-              Organize. Save. Discover.
-            </Animated.Text>
-
-            <View style={styles.progressTrack}>
-              <Animated.View style={[styles.progressFill, progressStyle]} />
-            </View>
           </View>
         </Animated.View>
       )}
@@ -207,40 +174,21 @@ const styles = StyleSheet.create({
   },
   ring: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.55)',
+    borderColor: 'rgba(255,255,255,0.6)',
   },
   logo: {
     width: 108,
     height: 108,
   },
   title: {
-    marginTop: 24,
-    fontSize: 26,
+    marginTop: 22,
+    fontSize: 24,
     fontWeight: '700',
     letterSpacing: 0.3,
     color: '#FFFFFF',
-  },
-  tagline: {
-    marginTop: 8,
-    fontSize: 13,
-    letterSpacing: 0.5,
-    color: 'rgba(255,255,255,0.75)',
-  },
-  progressTrack: {
-    marginTop: 32,
-    width: 120,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
   },
 });

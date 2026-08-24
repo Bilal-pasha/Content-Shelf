@@ -25,6 +25,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const googleSignIn = useGoogleSignIn();
   const { colors, spacing, typography } = useAppTheme();
+  const [googlePressed, setGooglePressed] = useState(false);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -80,7 +81,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <AuthLayout title="Welcome Back" subtitle="Sign in to continue">
+    <AuthLayout title="Welcome Back" subtitle="Sign in to continue" centered showBack={false}>
       <Controller
         control={control}
         name="email"
@@ -148,15 +149,17 @@ export default function LoginScreen() {
 
       <Pressable
         onPress={handleGoogleLogin}
+        onPressIn={() => setGooglePressed(true)}
+        onPressOut={() => setGooglePressed(false)}
         disabled={googleSignIn.isPending}
-        style={({ pressed }) => [
+        style={[
           styles.googleButton,
           {
             borderColor: colors.border,
             backgroundColor: colors.surface,
             borderRadius: 12,
             gap: spacing.sm,
-            opacity: pressed ? 0.85 : googleSignIn.isPending ? 0.6 : 1,
+            opacity: googlePressed ? 0.85 : googleSignIn.isPending ? 0.6 : 1,
           },
         ]}>
         <GoogleIcon width={20} height={20} />

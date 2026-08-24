@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from 'react-native';
 
 import { useAppTheme } from '@/hooks/use-app-theme';
@@ -20,6 +21,7 @@ export function Button({
 }: ButtonProps) {
   const { colors, spacing, radius, typography } = useAppTheme();
   const isDisabled = disabled || loading;
+  const [pressed, setPressed] = useState(false);
 
   const variantStyle = {
     primary: { backgroundColor: colors.primary, borderWidth: 0 },
@@ -43,7 +45,9 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       disabled={isDisabled}
-      style={({ pressed }) => [
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={[
         styles.base,
         variantStyle,
         {

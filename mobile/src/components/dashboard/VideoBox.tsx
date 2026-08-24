@@ -26,6 +26,7 @@ export function VideoBox({
   const title = item.title || truncate(item.url, 45);
   const badgeColor = SOURCE_COLORS[item.source] ?? SOURCE_COLORS.other;
   const [imgError, setImgError] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const showThumb = Boolean(item.thumbnailUrl) && !imgError;
   const handleImgError = useCallback(() => setImgError(true), []);
 
@@ -36,7 +37,7 @@ export function VideoBox({
         .springify()
         .damping(14)}>
       <Pressable
-        style={({ pressed }) => [
+        style={[
           styles.videoBox,
           {
             width: cardWidth,
@@ -46,6 +47,8 @@ export function VideoBox({
             ...shadow.card,
           },
         ]}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
         onPress={onPress}>
         <View style={[styles.thumbWrap, { aspectRatio: 16 / 9, borderRadius: radius.md }]}>
           {showThumb ? (

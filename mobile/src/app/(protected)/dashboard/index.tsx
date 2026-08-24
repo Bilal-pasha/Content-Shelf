@@ -49,6 +49,7 @@ export default function DashboardScreen() {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
   const { colors, spacing, radius, typography, shadow } = useAppTheme();
+  const [fabPressed, setFabPressed] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [source, setSource] = useState<'' | LinkSource>('');
@@ -220,15 +221,17 @@ export default function DashboardScreen() {
 
       <Pressable
         onPress={handleOpenAddSheet}
+        onPressIn={() => setFabPressed(true)}
+        onPressOut={() => setFabPressed(false)}
         accessibilityRole="button"
         accessibilityLabel="Add a video link"
-        style={({ pressed }) => [
+        style={[
           styles.fab,
           {
             bottom: (insets.bottom || 16) + 16,
             backgroundColor: colors.primary,
             borderRadius: radius.pill,
-            opacity: pressed ? 0.9 : 1,
+            opacity: fabPressed ? 0.9 : 1,
             ...shadow.card,
           },
         ]}>

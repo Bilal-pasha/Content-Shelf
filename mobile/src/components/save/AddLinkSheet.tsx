@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Modal,
@@ -76,6 +76,7 @@ export function AddLinkSheet({
   const urlEditable = Boolean(onUrlChange);
   const { colors, spacing, radius, typography, shadow, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const [closePressed, setClosePressed] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -136,6 +137,8 @@ export function AddLinkSheet({
               ...shadow.sheet,
             },
           ]}>
+          <View style={[styles.dragHandle, { backgroundColor: colors.border, marginTop: spacing.md }]} />
+
           {/* Header */}
           <View
             style={[
@@ -175,14 +178,16 @@ export function AddLinkSheet({
                 hitSlop={12}
                 accessibilityRole="button"
                 accessibilityLabel="Close"
-                style={({ pressed }) => [
+                onPressIn={() => setClosePressed(true)}
+                onPressOut={() => setClosePressed(false)}
+                style={[
                   styles.closeBtn,
                   {
                     backgroundColor: colors.surface,
                     borderWidth: 1,
                     borderColor: colors.border,
                     borderRadius: radius.pill,
-                    opacity: pressed ? 0.7 : 1,
+                    opacity: closePressed ? 0.7 : 1,
                   },
                 ]}>
                 <X size={18} color={colors.textMuted} strokeWidth={2.5} />
@@ -330,6 +335,12 @@ export function AddLinkSheet({
 }
 
 const styles = StyleSheet.create({
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+  },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
