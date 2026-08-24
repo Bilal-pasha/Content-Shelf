@@ -46,43 +46,24 @@ services:
       - .env
     networks:
       - video-app-network
+      - infra_default
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  caddy:
-    image: caddy:2-alpine
-    container_name: video-app-caddy
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./config/Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-      - caddy_logs:/var/log/caddy
-    networks:
-      - video-app-network
-    depends_on:
-      - server
-
 networks:
   video-app-network:
     driver: bridge
+  # Shared with the SAP Finance stack's Caddy instance (infra/docker-compose.yml
+  # in the SAP_Finance repo), which reverse-proxies content-shelf.stackeylabs.com
+  # to this container as `server:8000`. Must already exist on the host.
+  infra_default:
+    external: true
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
-    driver: local
-  caddy_data:
-    driver: local
-  caddy_config:
-    driver: local
-  caddy_logs:
     driver: local
