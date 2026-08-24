@@ -1,10 +1,10 @@
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { X } from 'lucide-react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { useThemeColor } from '@/hooks/use-theme-color';
-import { FilterPill } from './FilterPill';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { Chip } from '@/components/ui/Chip';
+import { Button } from '@/components/ui/Button';
 import { SOURCES, CATEGORIES } from './constants';
 import type { LinkSource, LinkCategory } from '@/services/links/links.types';
 
@@ -16,9 +16,6 @@ export function FiltersSheet({
   onCategoryChange,
   onClear,
   onClose,
-  iconColor,
-  borderColor,
-  backgroundColor,
 }: {
   visible: boolean;
   source: '' | LinkSource;
@@ -27,11 +24,8 @@ export function FiltersSheet({
   onCategoryChange: (c: '' | LinkCategory) => void;
   onClear: () => void;
   onClose: () => void;
-  iconColor: string;
-  borderColor: string;
-  backgroundColor: string;
 }) {
-  const tintColor = useThemeColor({ light: '#2563EB', dark: '#60A5FA' }, 'tint');
+  const { colors, spacing, radius, typography } = useAppTheme();
   const hasFilters = Boolean(source || category);
 
   const select = (fn: () => void) => {
@@ -43,63 +37,79 @@ export function FiltersSheet({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor, borderColor }]}>
-          <View style={styles.header}>
-            <ThemedText type="subtitle" style={styles.title}>
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+              borderTopLeftRadius: radius.xl,
+              borderTopRightRadius: radius.xl,
+              paddingTop: spacing.xl,
+              paddingBottom: spacing.xxl,
+            },
+          ]}>
+          <View style={[styles.header, { paddingHorizontal: spacing.xxl, marginBottom: spacing.lg }]}>
+            <Text style={{ color: colors.text, fontSize: typography.xl.fontSize, fontWeight: typography.xl.fontWeight }}>
               Filters
-            </ThemedText>
+            </Text>
             <Pressable
               onPress={onClose}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Close filters"
               style={styles.closeBtn}>
-              <X size={20} color={iconColor} />
+              <X size={20} color={colors.textMuted} />
             </Pressable>
           </View>
 
-          <ThemedText style={[styles.label, { color: iconColor }]}>Platform</ThemedText>
+          <Text style={[styles.label, { color: colors.textMuted, paddingHorizontal: spacing.xxl, marginBottom: spacing.sm }]}>
+            Platform
+          </Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillRow}>
+            contentContainerStyle={[styles.pillRow, { paddingHorizontal: spacing.xxl, marginBottom: spacing.xl, gap: spacing.md }]}>
             {SOURCES.map((item) => (
-              <FilterPill
+              <Chip
                 key={item.key || 'all'}
-                item={item}
-                active={source === item.key}
+                label={item.label}
+                selected={source === item.key}
+                showCheck={false}
                 onPress={() => select(() => onSourceChange(item.key))}
               />
             ))}
           </ScrollView>
 
-          <ThemedText style={[styles.label, { color: iconColor }]}>Category</ThemedText>
+          <Text style={[styles.label, { color: colors.textMuted, paddingHorizontal: spacing.xxl, marginBottom: spacing.sm }]}>
+            Category
+          </Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillRow}>
+            contentContainerStyle={[styles.pillRow, { paddingHorizontal: spacing.xxl, marginBottom: spacing.xl, gap: spacing.md }]}>
             {CATEGORIES.map((item) => (
-              <FilterPill
+              <Chip
                 key={item.key || 'all'}
-                item={item}
-                active={category === item.key}
+                label={item.label}
+                selected={category === item.key}
+                showCheck={false}
                 onPress={() => select(() => onCategoryChange(item.key))}
               />
             ))}
           </ScrollView>
 
-          <View style={[styles.footer, { borderColor }]}>
-            <Pressable
-              onPress={() => select(onClear)}
-              disabled={!hasFilters}
-              style={[styles.footerBtn, { opacity: hasFilters ? 1 : 0.4 }]}>
-              <ThemedText style={styles.clearText}>Clear all</ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={onClose}
-              style={[styles.footerBtn, styles.doneBtn, { backgroundColor: tintColor }]}>
-              <ThemedText style={styles.doneText}>Done</ThemedText>
-            </Pressable>
+          <View
+            style={[
+              styles.footer,
+              { borderColor: colors.border, paddingHorizontal: spacing.xxl, paddingTop: spacing.lg, gap: spacing.md },
+            ]}>
+            <View style={{ flex: 1 }}>
+              <Button label="Clear all" variant="secondary" onPress={() => select(onClear)} disabled={!hasFilters} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button label="Done" variant="primary" onPress={onClose} />
+            </View>
           </View>
         </View>
       </View>
@@ -110,46 +120,24 @@ export function FiltersSheet({
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     borderWidth: 1,
     borderBottomWidth: 0,
-    paddingTop: 20,
-    paddingBottom: 32,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 16,
   },
-  title: { fontSize: 18, fontWeight: '700' },
   closeBtn: { padding: 4 },
   label: {
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 8,
-    paddingHorizontal: 20,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  pillRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, marginBottom: 20 },
+  pillRow: { flexDirection: 'row' },
   footer: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 16,
     borderTopWidth: 1,
   },
-  footerBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clearText: { fontSize: 15, fontWeight: '600' },
-  doneBtn: {},
-  doneText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

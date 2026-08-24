@@ -1,11 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/providers/AuthProvider';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { linksService } from '@/services/links/links.services';
 import { pendingLinkStorage } from '@/services/links/pending-link.storage';
 import {
@@ -14,8 +12,7 @@ import {
 } from '@/constants/routes';
 import type { LinkCategory, LinkSource } from '@/services/links/links.types';
 
-import { AddLinkSheet } from '../../../components/save/AddLinkSheet';
-import React from 'react';
+import { AddLinkSheet } from '@/components/save/AddLinkSheet';
 
 export default function SaveLinkScreen() {
   const params = useLocalSearchParams<{ url?: string }>();
@@ -28,22 +25,7 @@ export default function SaveLinkScreen() {
   const [source, setSource] = useState<LinkSource | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const handled = useRef(false);
-
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
-  const iconColor = useThemeColor({ light: '#9BA1A6', dark: '#687076' }, 'icon');
-  const tintColor = useThemeColor(
-    { light: '#2563EB', dark: '#60A5FA' },
-    'tint',
-  );
-  const inputBg = useThemeColor(
-    { light: '#F5F5F5', dark: '#1C1C1E' },
-    'background',
-  );
-  const borderColor = useThemeColor(
-    { light: '#E5E5E5', dark: '#2D2D2D' },
-    'icon',
-  );
+  const { colors, spacing, typography } = useAppTheme();
 
   useEffect(() => {
     if (authLoading || handled.current) return;
@@ -111,17 +93,17 @@ export default function SaveLinkScreen() {
 
   if (authLoading) {
     return (
-      <ThemedView style={[styles.container, { backgroundColor }]}>
-        <ActivityIndicator size="large" color={tintColor} />
-        <ThemedText style={[styles.statusText, { color: iconColor }]}>
+      <View style={[styles.container, { backgroundColor: colors.background, gap: spacing.lg }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.textMuted, fontSize: typography.base.fontSize }}>
           Checking sign-in…
-        </ThemedText>
-      </ThemedView>
+        </Text>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, gap: spacing.lg }]}>
       <AddLinkSheet
         visible={showCategoryModal}
         url={pendingUrl ?? ''}
@@ -133,24 +115,19 @@ export default function SaveLinkScreen() {
         onCancel={handleCancel}
         isSaving={status === 'saving'}
         error={saveError}
-        backgroundColor={backgroundColor}
-        textColor={textColor}
-        iconColor={iconColor}
-        inputBg={inputBg}
-        borderColor={borderColor}
       />
 
       {!showCategoryModal && status !== 'idle' && (
         <>
-          <ActivityIndicator size="large" color={tintColor} />
-          <ThemedText style={[styles.statusText, { color: iconColor }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textMuted, fontSize: typography.base.fontSize }}>
             {status === 'saving'
               ? 'Saving link…'
               : 'Taking you to dashboard…'}
-          </ThemedText>
+          </Text>
         </>
       )}
-    </ThemedView>
+    </View>
   );
 }
 
@@ -159,10 +136,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
-  },
-  statusText: {
-    fontSize: 16,
-    opacity: 0.8,
   },
 });

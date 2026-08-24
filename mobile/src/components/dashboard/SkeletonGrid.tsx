@@ -9,6 +9,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { HORZ_PADDING, CARD_GAP } from './constants';
 
 function SkeletonCard({
@@ -44,14 +45,14 @@ function SkeletonCard({
 export function SkeletonGrid({
   columns,
   cardWidth,
-  tint,
   rows = 2,
 }: {
   columns: number;
   cardWidth: number;
-  tint: string;
   rows?: number;
 }) {
+  const { colors } = useAppTheme();
+  const tint = colors.surface;
   const count = columns * rows;
   const opacity = useSharedValue(0.4);
 

@@ -13,10 +13,11 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import "../../global.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { AuthProvider } from "@/providers/AuthProvider";
+import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { configureGoogleSignIn } from "@/services/auth/google-auth.service";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { AnimatedSplashScreen } from "@/components/AnimatedSplashScreen";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -67,16 +68,30 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-            <OfflineBanner />
-            <Stack>
-              <Stack.Screen name="(public)" options={{ headerShown: false }} />
-              <Stack.Screen name="(protected)" options={{ headerShown: false }} />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
+          <AppContent colorScheme={colorScheme} />
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
+  );
+}
+
+function AppContent({
+  colorScheme,
+}: {
+  colorScheme: ReturnType<typeof useColorScheme>;
+}) {
+  const { isLoading } = useAuth();
+
+  return (
+    <AnimatedSplashScreen ready={!isLoading}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <OfflineBanner />
+        <Stack>
+          <Stack.Screen name="(public)" options={{ headerShown: false }} />
+          <Stack.Screen name="(protected)" options={{ headerShown: false }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </AnimatedSplashScreen>
   );
 }

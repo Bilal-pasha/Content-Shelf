@@ -1,31 +1,132 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Design tokens for the app: semantic colors, spacing, typography, radius,
+ * and shadow presets. Dark is the primary/flagship theme (Linear/Vercel-style
+ * minimal dark UI); light is a fully-specified but secondary fallback for
+ * users with the OS set to light mode.
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const primaryLight = '#2563EB';
+const primaryDark = '#60A5FA';
 
 export const Colors = {
   light: {
+    background: '#FFFFFF',
+    surface: '#F7F8F9',
+    surfaceElevated: '#FFFFFF',
+    border: '#E5E7EB',
+    borderSubtle: '#F0F1F3',
     text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    textMuted: '#6B7280',
+    textInverse: '#FFFFFF',
+    primary: primaryLight,
+    primaryMuted: 'rgba(37,99,235,0.10)',
+    success: '#16A34A',
+    successMuted: 'rgba(22,163,74,0.12)',
+    danger: '#DC2626',
+    dangerMuted: 'rgba(220,38,38,0.10)',
+    warning: '#D97706',
+    // Legacy keys kept for any not-yet-migrated call sites.
+    tint: primaryLight,
+    icon: '#6B7280',
+    tabIconDefault: '#6B7280',
+    tabIconSelected: primaryLight,
   },
   dark: {
+    background: '#0B0D0F',
+    surface: '#15171A',
+    surfaceElevated: '#1B1E22',
+    border: '#262A2E',
+    borderSubtle: '#1D2024',
     text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    textMuted: '#8B9198',
+    textInverse: '#0B0D0F',
+    primary: primaryDark,
+    primaryMuted: 'rgba(96,165,250,0.14)',
+    success: '#34D399',
+    successMuted: 'rgba(52,211,153,0.14)',
+    danger: '#F87171',
+    dangerMuted: 'rgba(248,113,113,0.14)',
+    warning: '#FBBF24',
+    // Legacy keys kept for any not-yet-migrated call sites.
+    tint: primaryDark,
+    icon: '#8B9198',
+    tabIconDefault: '#8B9198',
+    tabIconSelected: primaryDark,
   },
 };
+
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+  huge: 40,
+};
+
+export const Radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  pill: 999,
+};
+
+type TypeScale = { fontSize: number; lineHeight: number; fontWeight: '400' | '500' | '600' | '700' };
+
+export const Typography: Record<
+  'xs' | 'sm' | 'base' | 'lg' | 'xl' | 'xxl' | 'display',
+  TypeScale
+> = {
+  xs: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
+  sm: { fontSize: 14, lineHeight: 20, fontWeight: '500' },
+  base: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
+  lg: { fontSize: 18, lineHeight: 26, fontWeight: '600' },
+  xl: { fontSize: 20, lineHeight: 28, fontWeight: '700' },
+  xxl: { fontSize: 24, lineHeight: 32, fontWeight: '700' },
+  display: { fontSize: 28, lineHeight: 36, fontWeight: '700' },
+};
+
+export const Shadows = {
+  // React Native shadow props only render on iOS (shadowColor/Offset/etc.);
+  // `elevation` is the Android equivalent — both included per preset.
+  card: {
+    light: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    dark: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+  },
+  sheet: {
+    light: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -8 },
+      shadowOpacity: 0.12,
+      shadowRadius: 24,
+      elevation: 16,
+    },
+    dark: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.4,
+      shadowRadius: 16,
+      elevation: 12,
+    },
+  },
+} as const;
 
 export const Fonts = Platform.select({
   ios: {

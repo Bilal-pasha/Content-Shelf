@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "VideoVault",
+    "name": "content-shelf",
     "slug": "video-vault",
     "version": "1.0.0",
     "scheme": "video-mobile-application",
@@ -41,16 +41,22 @@
           "iosUrlScheme": "com.googleusercontent.apps.816917709083-lv7rhclh5jt9pa9c6al8666nbv1d49fp"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#2563EB",
+          "dark": {
+            "backgroundColor": "#1E3A8A"
+          }
+        }
+      ]
     ],
     "orientation": "portrait",
     "icon": "./src/assets/images/icon.png",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./src/assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],

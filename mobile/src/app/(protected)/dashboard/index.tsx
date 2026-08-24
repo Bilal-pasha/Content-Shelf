@@ -7,6 +7,8 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  Text,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,9 +17,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { useAuth } from '@/providers/AuthProvider';
 import {
   linksService,
@@ -48,6 +48,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
+  const { colors, spacing, radius, typography, shadow } = useAppTheme();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [source, setSource] = useState<'' | LinkSource>('');
@@ -65,22 +66,6 @@ export default function DashboardScreen() {
   const columns = getColumns(width);
   const cardWidth =
     (width - HORZ_PADDING * 2 - CARD_GAP * (columns - 1)) / columns;
-
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
-  const borderColor = useThemeColor(
-    { light: '#E5E5E5', dark: '#2D2D2D' },
-    'icon',
-  );
-  const inputBg = useThemeColor(
-    { light: '#F5F5F5', dark: '#1C1C1E' },
-    'background',
-  );
-  const iconColor = useThemeColor({ light: '#9BA1A6', dark: '#687076' }, 'icon');
-  const placeholderBg = useThemeColor(
-    { light: '#E8E8ED', dark: '#2C2C2E' },
-    'background',
-  );
 
   const {
     data: filteredLinks = [],
@@ -166,27 +151,19 @@ export default function DashboardScreen() {
 
   const renderItem = useCallback(
     ({ item, index }: { item: SavedLink; index: number }) => (
-      <ThemedView
+      <View
         style={{
           marginBottom: CARD_GAP,
           paddingHorizontal: columns === 1 ? HORZ_PADDING : 0,
         }}>
-        <VideoBox
-          item={item}
-          index={index}
-          cardWidth={cardWidth}
-          placeholderBg={placeholderBg}
-          iconColor={iconColor}
-          onPress={() => handleOpenLink(item.url)}
-        />
-      </ThemedView>
+        <VideoBox item={item} index={index} cardWidth={cardWidth} onPress={() => handleOpenLink(item.url)} />
+      </View>
     ),
-    [cardWidth, columns, placeholderBg, iconColor, handleOpenLink],
+    [cardWidth, columns, handleOpenLink],
   );
 
   return (
-    <ThemedView
-      style={[styles.container, { backgroundColor, paddingTop: insets.top || 40 }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top || 40 }]}>
       <FlatList
         key={columns}
         style={styles.scrollView}
@@ -201,66 +178,44 @@ export default function DashboardScreen() {
         }
         renderItem={renderItem}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefetching && !isLoading}
-            onRefresh={refetch}
-            tintColor="#2563EB"
-          />
+          <RefreshControl refreshing={isRefetching && !isLoading} onRefresh={refetch} tintColor={colors.primary} />
         }
         ListHeaderComponent={
           <>
             <DashboardHeader
               userEmail={user?.email}
-              iconColor={iconColor}
-              inputBg={inputBg}
               onSignOut={handleSignOut}
               onAvatarPress={handleAvatarPress}
             />
 
-            <DashboardSearch
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search videos..."
-              textColor={textColor}
-              iconColor={iconColor}
-              inputBg={inputBg}
-            />
+            <DashboardSearch value={search} onChangeText={setSearch} placeholder="Search videos..." />
 
             <DashboardFilters
               source={source}
               category={category}
               onSourceChange={setSource}
               onCategoryChange={setCategory}
-              iconColor={iconColor}
             />
 
             <Animated.View
               entering={FadeIn.delay(200).duration(400)}
-              style={styles.sectionHeader}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
+              style={[styles.sectionHeader, { paddingHorizontal: HORZ_PADDING, marginBottom: spacing.lg }]}>
+              <Text style={{ color: colors.text, fontSize: typography.lg.fontSize, fontWeight: typography.lg.fontWeight }}>
                 Saved videos
-              </ThemedText>
-              <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
+              </Text>
+              <Text style={{ color: colors.textMuted, fontSize: typography.sm.fontSize }}>
                 {links.length} {links.length === 1 ? 'video' : 'videos'}
-              </ThemedText>
+              </Text>
             </Animated.View>
 
             {isLoading && (
               <Animated.View entering={FadeIn.duration(300)}>
-                <SkeletonGrid columns={columns} cardWidth={cardWidth} tint={placeholderBg} />
+                <SkeletonGrid columns={columns} cardWidth={cardWidth} />
               </Animated.View>
             )}
           </>
         }
-        ListEmptyComponent={
-          !isLoading ? (
-            <EmptyState
-              hasFilters={hasFilters}
-              borderColor={borderColor}
-              iconColor={iconColor}
-            />
-          ) : null
-        }
+        ListEmptyComponent={!isLoading ? <EmptyState hasFilters={hasFilters} /> : null}
       />
 
       <Pressable
@@ -269,9 +224,15 @@ export default function DashboardScreen() {
         accessibilityLabel="Add a video link"
         style={({ pressed }) => [
           styles.fab,
-          { bottom: (insets.bottom || 16) + 16, opacity: pressed ? 0.9 : 1 },
+          {
+            bottom: (insets.bottom || 16) + 16,
+            backgroundColor: colors.primary,
+            borderRadius: radius.pill,
+            opacity: pressed ? 0.9 : 1,
+            ...shadow.card,
+          },
         ]}>
-        <Plus size={26} color="#fff" strokeWidth={2.5} />
+        <Plus size={26} color={colors.textInverse} strokeWidth={2.5} />
       </Pressable>
 
       <AddLinkSheet
@@ -286,13 +247,8 @@ export default function DashboardScreen() {
         onCancel={handleCancelAddSheet}
         isSaving={addLinkMutation.isPending}
         error={addLinkMutation.isError ? 'Could not save. Try again.' : null}
-        backgroundColor={backgroundColor}
-        textColor={textColor}
-        iconColor={iconColor}
-        inputBg={inputBg}
-        borderColor={borderColor}
       />
-    </ThemedView>
+    </View>
   );
 }
 
@@ -304,24 +260,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    paddingHorizontal: HORZ_PADDING,
-    marginBottom: 16,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '600' },
-  sectionCount: { fontSize: 14 },
   fab: {
     position: 'absolute',
     right: 20,
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
   },
 });

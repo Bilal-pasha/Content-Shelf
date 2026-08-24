@@ -9,18 +9,17 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Text,
   TextInput,
   Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { X, Link2, Check, Sparkles } from 'lucide-react-native';
+import { X, Link2 } from 'lucide-react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { useThemeColor } from '@/hooks/use-theme-color';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAppTheme } from '@/hooks/use-app-theme';
+import { Button } from '@/components/ui/Button';
+import { Chip } from '@/components/ui/Chip';
+import { Badge } from '@/components/ui/Badge';
 import type { LinkCategory, LinkSource } from '@/services/links/links.types';
 
 const CATEGORY_OPTIONS: { key: LinkCategory; label: string }[] = [
@@ -38,7 +37,7 @@ const SOURCE_OPTIONS: { key: LinkSource; label: string; color: string }[] = [
   { key: 'instagram', label: 'Instagram', color: '#E4405F' },
   { key: 'facebook', label: 'Facebook', color: '#1877F2' },
   { key: 'twitter', label: 'Twitter', color: '#1DA1F2' },
-  { key: 'tiktok', label: 'TikTok', color: '#000000' },
+  { key: 'tiktok', label: 'TikTok', color: '#525252' },
   { key: 'youtube', label: 'YouTube', color: '#FF0000' },
   { key: 'linkedin', label: 'LinkedIn', color: '#0A66C2' },
   { key: 'other', label: 'Other', color: '#6B7280' },
@@ -61,11 +60,6 @@ export function AddLinkSheet({
   onCancel,
   isSaving,
   error,
-  backgroundColor,
-  textColor,
-  iconColor,
-  inputBg,
-  borderColor,
 }: {
   visible: boolean;
   url: string;
@@ -78,183 +72,52 @@ export function AddLinkSheet({
   onCancel: () => void;
   isSaving: boolean;
   error: string | null;
-  backgroundColor: string;
-  textColor: string;
-  iconColor: string;
-  inputBg: string;
-  borderColor: string;
 }) {
   const urlEditable = Boolean(onUrlChange);
-  const colorScheme = useColorScheme() ?? 'light';
-  const isDark = colorScheme === 'dark';
-  const primaryColor = useThemeColor(
-    { light: '#2563EB', dark: '#60A5FA' },
-    'tint',
-  );
-  const errorColor = useThemeColor(
-    { light: '#DC2626', dark: '#F87171' },
-    'text',
-  );
-  const saveBtnTextColor = '#FFFFFF';
+  const { colors, spacing, radius, typography, shadow, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
 
-  // Animation values
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const sparkleRotate = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      // Reset animations
       slideAnim.setValue(0);
       fadeAnim.setValue(0);
-      scaleAnim.setValue(0.95);
-
-      // Start entrance animations
       Animated.parallel([
-        Animated.spring(slideAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 65,
-          friction: 8,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 100,
-          friction: 7,
-        }),
+        Animated.spring(slideAnim, { toValue: 1, useNativeDriver: true, tension: 65, friction: 9 }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
       ]).start();
-
-      // Continuous sparkle rotation
-      Animated.loop(
-        Animated.timing(sparkleRotate, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        })
-      ).start();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
-
-  const sparkleRotation = sparkleRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const win = useWindowDimensions();
   const fallback = Dimensions.get('window');
   const width = win.width > 0 ? win.width : fallback.width;
   const height = win.height > 0 ? win.height : fallback.height;
 
-  // Screen size breakpoints
-  const isVeryNarrow = width < 340;
-  const isNarrow = width < 380;
-  const isVeryShort = height < 600;  // Very small phones
-  const isShort = height < 700;      // Small phones
-  const isMedium = height >= 700 && height < 850;  // Standard phones
-  const isTall = height >= 850;      // Large phones/tablets
-
-  // Dynamic height calculation based on screen size
-  const getSheetHeight = () => {
-    if (isVeryShort) {
-      // For very small screens, use more of the available space
-      return Math.min(height * 0.92, height - 40);
-    } else if (isShort) {
-      // For small screens
-      return Math.min(height * 0.88, height - 60);
-    } else if (isMedium) {
-      // For medium screens
-      return Math.min(height * 0.85, 650);
-    } else {
-      // For tall screens, cap at reasonable height
-      return Math.min(height * 0.82, 720);
-    }
-  };
-
-  const sheetWidth = Math.min(width - (isVeryNarrow ? 16 : isNarrow ? 24 : 32), 500);
-  const sheetMaxHeight = getSheetHeight();
-  const bodyPadding = isVeryNarrow ? 16 : isNarrow ? 20 : 24;
-  const sheetPadding = isVeryNarrow ? 16 : isNarrow ? 20 : 24;
-  const categoryGap = isVeryNarrow ? 12 : isNarrow ? 14 : 16;
-
-  // Adjust section margins based on available height
-  const sectionMargin = isVeryShort ? 14 : isShort ? 18 : isMedium ? 24 : 28;
-
-  const contentWidth = sheetWidth - sheetPadding * 2;
-  const categoryColumns =
-    contentWidth < 260 ? 2 : contentWidth < 340 ? 3 : contentWidth < 420 ? 4 : 5;
-  const categoryTileWidth =
-    (contentWidth - bodyPadding * 2 - categoryGap * (categoryColumns - 1)) / categoryColumns;
-
-  // Adjust padding based on screen size
-  const tilePaddingV = isVeryShort ? 10 : isVeryNarrow ? 12 : isNarrow ? 14 : 16;
-  const tilePaddingH = isVeryNarrow ? 12 : isNarrow ? 14 : 18;
-  const tileFontSize = isVeryNarrow ? 13 : isNarrow ? 14 : 15;
-  const labelFontSize = isVeryShort ? 11 : isVeryNarrow ? 12 : isNarrow ? 13 : 14;
-  const labelMarginBottom = isVeryShort ? 8 : isVeryNarrow ? 10 : 12;
-  const sourceTileMinWidth = isVeryNarrow ? 90 : isNarrow ? 100 : 110;
+  // Structural breakpoints only — sheet height and grid column count
+  // genuinely need to respond to available space. Padding/type sizing
+  // below uses fixed design-system tokens instead of per-size ternaries.
+  const isShort = height < 700;
+  const sheetHeight = isShort ? Math.min(height * 0.9, height - 40) : Math.min(height * 0.85, 680);
+  const sheetWidth = Math.min(width - spacing.xxl, 500);
+  const contentWidth = sheetWidth - spacing.xxl * 2;
+  const categoryColumns = contentWidth < 260 ? 2 : contentWidth < 340 ? 3 : contentWidth < 420 ? 4 : 5;
+  const categoryTileWidth = (contentWidth - spacing.md * (categoryColumns - 1)) / categoryColumns;
   const urlTruncate = width < 360 ? 50 : width < 400 ? 60 : 72;
 
-  const gradientColors =
-    isDark ? (['#38BDF8', '#0EA5E9'] as const) : (['#3B82F6', '#2563EB'] as const);
-  const gradientDisabled =
-    isDark ? (['#4B5563', '#374151'] as const) : (['#D1D5DB', '#9CA3AF'] as const);
-  const backdropOpacity = isDark ? 'rgba(0,0,0,0.75)' : 'rgba(0,0,0,0.5)';
+  const backdropOpacity = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.45)';
 
-  // Adjust footer padding based on screen size and safe area
-  const footerBottom = isVeryShort
-    ? Math.max(insets.bottom, 12)
-    : Math.max(insets.bottom, 16);
+  const translateY = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [sheetHeight, 0] });
 
-  const optionShadow = isDark
-    ? {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      elevation: 3,
-    }
-    : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 6,
-      elevation: 3,
-    };
-
-  // Adjust button height based on screen size
-  const footerBtnHeight = isVeryShort ? 44 : isVeryNarrow ? 48 : isNarrow ? 52 : 56;
-
-  // Calculate total footer height for scroll padding
-  const footerPaddingTop = isVeryShort ? 12 : isVeryNarrow ? 16 : isNarrow ? 18 : 20;
-  const totalFooterHeight = footerBtnHeight + footerPaddingTop + footerBottom + 2; // +2 for border
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [sheetMaxHeight, 0],
-  });
+  const canSave = Boolean(category) && !(urlEditable && !url.trim()) && !isSaving;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={onCancel}>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Animated.View
-          style={[
-            styles.backdrop,
-            { backgroundColor: backdropOpacity, opacity: fadeAnim },
-          ]}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onCancel}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Animated.View style={[styles.backdrop, { backgroundColor: backdropOpacity, opacity: fadeAnim }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
         </Animated.View>
 
@@ -262,83 +125,49 @@ export function AddLinkSheet({
           style={[
             styles.sheet,
             {
-              backgroundColor,
+              backgroundColor: colors.surfaceElevated,
               width: sheetWidth,
-              height: sheetMaxHeight,
-              paddingHorizontal: 0,
-              paddingTop: 0,
-              paddingBottom: 0,
-              transform: [{ translateY }, { scale: scaleAnim }],
-              ...(isDark
-                ? { borderTopWidth: 1.5, borderColor: borderColor }
-                : {
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: -8 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 24,
-                  elevation: 16,
-                }),
+              height: sheetHeight,
+              borderTopLeftRadius: radius.xl,
+              borderTopRightRadius: radius.xl,
+              transform: [{ translateY }],
+              borderTopWidth: 1,
+              borderColor: colors.border,
+              ...shadow.sheet,
             },
           ]}>
-          {/* Header with gradient accent */}
+          {/* Header */}
           <View
             style={[
               styles.header,
-              {
-                paddingHorizontal: isVeryNarrow ? 16 : isNarrow ? 20 : 24,
-                paddingTop: isVeryShort ? 6 : isVeryNarrow ? 8 : 10,
-                paddingBottom: isVeryShort ? 10 : isVeryNarrow ? 14 : 16,
-              },
+              { paddingHorizontal: spacing.xxl, paddingTop: spacing.lg, paddingBottom: spacing.lg },
             ]}>
-            <LinearGradient
-              colors={gradientColors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.headerAccent}
-            />
             <View style={styles.headerRow}>
-              <View style={styles.titleRow}>
-                <View style={styles.titleIconWrap}>
-                  <LinearGradient
-                    colors={gradientColors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.titleIcon,
-                      (isVeryShort || isVeryNarrow) && { width: 38, height: 38 },
-                    ]}>
-                    <Animated.View style={{ transform: [{ rotate: sparkleRotation }] }}>
-                      <Sparkles
-                        size={isVeryShort || isVeryNarrow ? 18 : 22}
-                        color="#FFF"
-                        strokeWidth={2}
-                      />
-                    </Animated.View>
-                  </LinearGradient>
+              <View style={[styles.titleRow, { gap: spacing.md }]}>
+                <View
+                  style={[
+                    styles.titleIcon,
+                    { backgroundColor: colors.primaryMuted, borderRadius: radius.md },
+                  ]}>
+                  <Link2 size={20} color={colors.primary} strokeWidth={2} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <ThemedText
-                    type="subtitle"
-                    style={[
-                      styles.title,
-                      {
-                        fontSize: isVeryShort ? 17 : isVeryNarrow ? 18 : isNarrow ? 20 : 22,
-                      },
-                    ]}>
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: typography.xl.fontSize,
+                      fontWeight: typography.xl.fontWeight,
+                    }}>
                     Add Video
-                  </ThemedText>
-                  {!isVeryShort && (
-                    <ThemedText
-                      style={[
-                        styles.subtitle,
-                        {
-                          color: iconColor,
-                          fontSize: isVeryNarrow ? 11 : 13,
-                        },
-                      ]}>
-                      Save your favorite content
-                    </ThemedText>
-                  )}
+                  </Text>
+                  <Text
+                    style={{
+                      color: colors.textMuted,
+                      fontSize: typography.xs.fontSize,
+                      marginTop: 2,
+                    }}>
+                    Save your favorite content
+                  </Text>
                 </View>
               </View>
               <Pressable
@@ -349,333 +178,150 @@ export function AddLinkSheet({
                 style={({ pressed }) => [
                   styles.closeBtn,
                   {
-                    backgroundColor: inputBg,
+                    backgroundColor: colors.surface,
                     borderWidth: 1,
-                    borderColor: borderColor,
-                    width: isVeryShort || isVeryNarrow ? 36 : 42,
-                    height: isVeryShort || isVeryNarrow ? 36 : 42,
-                    borderRadius: isVeryShort || isVeryNarrow ? 18 : 21,
+                    borderColor: colors.border,
+                    borderRadius: radius.pill,
+                    opacity: pressed ? 0.7 : 1,
                   },
-                  pressed && styles.pressed,
                 ]}>
-                <X size={isVeryShort || isVeryNarrow ? 17 : 20} color={iconColor} strokeWidth={2.5} />
+                <X size={18} color={colors.textMuted} strokeWidth={2.5} />
               </Pressable>
             </View>
           </View>
 
           <ScrollView
             style={styles.body}
-            contentContainerStyle={[
-              styles.bodyContent,
-              {
-                paddingHorizontal: bodyPadding,
-                paddingTop: isVeryShort ? 8 : 12,
-                paddingBottom: isVeryShort ? 16 : 20,
-              },
-            ]}
+            contentContainerStyle={{
+              paddingHorizontal: spacing.xxl,
+              paddingTop: spacing.sm,
+              paddingBottom: spacing.xl,
+            }}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            bounces={true}>
+            keyboardShouldPersistTaps="handled">
             {/* URL preview */}
-            <View style={[styles.section, { marginBottom: sectionMargin }]}>
-              <ThemedText
-                style={[
-                  styles.sectionLabel,
-                  {
-                    color: iconColor,
-                    fontSize: labelFontSize,
-                    marginBottom: labelMarginBottom,
-                  },
-                ]}>
+            <View style={{ marginBottom: spacing.xxl }}>
+              <Text style={[styles.sectionLabel, { color: colors.textMuted, marginBottom: spacing.md }]}>
                 VIDEO LINK
-              </ThemedText>
+              </Text>
               <View
                 style={[
                   styles.urlCard,
                   {
-                    backgroundColor: isDark ? 'rgba(96,165,250,0.08)' : 'rgba(37,99,235,0.05)',
-                    borderWidth: 1.5,
-                    borderColor: isDark ? 'rgba(96,165,250,0.2)' : 'rgba(37,99,235,0.15)',
-                    paddingVertical: isVeryShort ? tilePaddingV - 2 : tilePaddingV,
-                    paddingHorizontal: tilePaddingH,
-                    borderRadius: isVeryShort ? 14 : isNarrow ? 16 : 18,
-                  },
-                  !isDark && {
-                    shadowColor: primaryColor,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.08,
-                    shadowRadius: 8,
-                    elevation: 2,
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderRadius: radius.lg,
+                    padding: spacing.lg,
+                    gap: spacing.md,
                   },
                 ]}>
-                <View style={[
-                  styles.urlIconWrap,
-                  {
-                    backgroundColor: primaryColor,
-                    width: isVeryShort ? 28 : 32,
-                    height: isVeryShort ? 28 : 32,
-                    borderRadius: isVeryShort ? 8 : 10,
-                  }
-                ]}>
-                  <Link2
-                    size={isVeryShort ? 13 : isVeryNarrow ? 14 : 16}
-                    color="#FFF"
-                    strokeWidth={2.5}
-                  />
+                <View
+                  style={[
+                    styles.urlIconWrap,
+                    { backgroundColor: colors.primary, borderRadius: radius.sm },
+                  ]}>
+                  <Link2 size={14} color={colors.textInverse} strokeWidth={2.5} />
                 </View>
                 {urlEditable ? (
                   <TextInput
-                    style={[
-                      styles.urlText,
-                      styles.urlInput,
-                      {
-                        color: textColor,
-                        fontSize: isVeryShort ? 12 : isVeryNarrow ? 13 : 14,
-                      },
-                    ]}
+                    style={[styles.urlText, { color: colors.text, fontSize: typography.sm.fontSize }]}
                     value={url}
                     onChangeText={onUrlChange}
                     placeholder="Paste a video link…"
-                    placeholderTextColor={iconColor}
+                    placeholderTextColor={colors.textMuted}
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="url"
                     returnKeyType="done"
                   />
                 ) : (
-                  <ThemedText
-                    style={[
-                      styles.urlText,
-                      {
-                        color: textColor,
-                        fontSize: isVeryShort ? 12 : isVeryNarrow ? 13 : 14,
-                      },
-                    ]}
-                    numberOfLines={isVeryShort ? 1 : 2}>
+                  <Text
+                    style={[styles.urlText, { color: colors.text, fontSize: typography.sm.fontSize }]}
+                    numberOfLines={isShort ? 1 : 2}>
                     {url ? truncateUrl(url, urlTruncate) : 'No link provided'}
-                  </ThemedText>
+                  </Text>
                 )}
               </View>
             </View>
 
-            {/* Category – required, responsive grid with option backgrounds */}
-            <View style={[styles.section, { marginBottom: sectionMargin }]}>
-              <View style={styles.labelRow}>
-                <ThemedText
-                  style={[
-                    styles.sectionLabel,
-                    {
-                      color: iconColor,
-                      fontSize: labelFontSize,
-                      marginBottom: labelMarginBottom,
-                    },
-                  ]}>
-                  CATEGORY <Text style={{ color: errorColor, fontSize: labelFontSize + 1 }}>*</Text>
-                </ThemedText>
-                {category && (
-                  <View style={[styles.requiredBadge, { backgroundColor: isDark ? 'rgba(34,197,94,0.15)' : 'rgba(34,197,94,0.1)' }]}>
-                    <Check size={10} color="#22C55E" strokeWidth={3} />
-                    <Text style={[styles.requiredBadgeText, { color: '#22C55E' }]}>Selected</Text>
-                  </View>
-                )}
+            {/* Category — required */}
+            <View style={{ marginBottom: spacing.xxl }}>
+              <View style={[styles.labelRow, { marginBottom: spacing.md }]}>
+                <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                  CATEGORY <Text style={{ color: colors.danger }}>*</Text>
+                </Text>
+                {category && <Badge label="Selected" tone="success" />}
               </View>
-              <View style={[styles.categoryGrid, { gap: categoryGap }]}>
-                {CATEGORY_OPTIONS.map(({ key, label }) => {
-                  const active = category === key;
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => onCategoryChange(key)}
-                      style={({ pressed }) => [
-                        styles.categoryTile,
-                        {
-                          width: categoryTileWidth,
-                          paddingVertical: tilePaddingV,
-                          paddingHorizontal: tilePaddingH,
-                          borderRadius: isNarrow ? 14 : 16,
-                          borderColor: active ? primaryColor : borderColor,
-                          borderWidth: active ? 2 : 1.5,
-                          backgroundColor: active
-                            ? primaryColor
-                            : isDark
-                              ? 'rgba(255,255,255,0.05)'
-                              : 'rgba(0,0,0,0.02)',
-                          ...optionShadow,
-                        },
-                        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
-                      ]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <Text style={{ fontSize: tileFontSize, fontWeight: active ? '700' : '600' }}>{label}</Text>
-                        {active && (
-                          <View style={styles.checkWrap}>
-                            <Check size={12} color={'#fff'} strokeWidth={3} />
-                          </View>
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
+              <View style={[styles.grid, { gap: spacing.md }]}>
+                {CATEGORY_OPTIONS.map(({ key, label }) => (
+                  <Chip
+                    key={key}
+                    label={label}
+                    selected={category === key}
+                    onPress={() => onCategoryChange(key)}
+                    style={{ width: categoryTileWidth }}
+                  />
+                ))}
               </View>
             </View>
 
-            {/* Platform – optional, horizontal row with option backgrounds */}
-            <View style={[styles.section, { marginBottom: sectionMargin }]}>
-              <ThemedText
-                style={[
-                  styles.sectionLabel,
-                  {
-                    color: iconColor,
-                    fontSize: labelFontSize,
-                    marginBottom: labelMarginBottom,
-                  },
-                ]}>
-                PLATFORM <Text style={[styles.optional, { color: iconColor, opacity: 0.7 }]}>(optional)</Text>
-              </ThemedText>
+            {/* Platform — optional */}
+            <View style={{ marginBottom: spacing.xl }}>
+              <Text style={[styles.sectionLabel, { color: colors.textMuted, marginBottom: spacing.md }]}>
+                PLATFORM{' '}
+                <Text style={{ color: colors.textMuted, textTransform: 'none', fontWeight: '500' }}>
+                  (optional)
+                </Text>
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: categoryGap, paddingVertical: 4, paddingRight: bodyPadding }}>
-                {SOURCE_OPTIONS.map(({ key, label, color: accent }) => {
-                  const active = source === key;
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => onSourceChange(active ? null : key)}
-                      style={({ pressed }) => [
-                        styles.sourceTile,
-                        {
-                          minWidth: sourceTileMinWidth,
-                          paddingVertical: tilePaddingV,
-                          paddingHorizontal: tilePaddingH,
-                          borderRadius: isNarrow ? 14 : 16,
-                          borderColor: active ? accent : borderColor,
-                          borderWidth: active ? 2 : 1.5,
-                          backgroundColor: active
-                            ? isDark
-                              ? `${accent}20`
-                              : `${accent}15`
-                            : isDark
-                              ? 'rgba(255,255,255,0.05)'
-                              : 'rgba(0,0,0,0.02)',
-                          ...optionShadow,
-                        },
-                        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
-                      ]}>
-                      <View
-                        style={[styles.sourceBar, { backgroundColor: accent }]}
-                      />
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <Text style={{ fontSize: tileFontSize, fontWeight: active ? '700' : '600' }}>{label}</Text>
-                        {active && (
-                          <View style={styles.checkWrap}>
-                            <Check size={12} color={'#fff'} strokeWidth={3} />
-                          </View>
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
+                contentContainerStyle={{ gap: spacing.md, paddingVertical: 4 }}>
+                {SOURCE_OPTIONS.map(({ key, label, color: accent }) => (
+                  <Chip
+                    key={key}
+                    label={label}
+                    selected={source === key}
+                    accentColor={accent}
+                    onPress={() => onSourceChange(source === key ? null : key)}
+                  />
+                ))}
               </ScrollView>
             </View>
 
             {error ? (
-              <View style={[styles.errorContainer, { backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.1)' }]}>
-                <Text style={[styles.errorText, { color: errorColor }]}>⚠️ {error}</Text>
+              <View
+                style={{
+                  backgroundColor: colors.dangerMuted,
+                  borderRadius: radius.md,
+                  padding: spacing.md,
+                }}>
+                <Text style={{ color: colors.danger, fontSize: typography.sm.fontSize, fontWeight: '600', textAlign: 'center' }}>
+                  {error}
+                </Text>
               </View>
             ) : null}
           </ScrollView>
 
-          {/* Footer - Fixed at bottom */}
+          {/* Footer */}
           <View
             style={[
               styles.footer,
               {
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor,
-                borderTopColor: borderColor,
-                paddingHorizontal: bodyPadding,
-                paddingTop: footerPaddingTop,
-                paddingBottom: footerBottom,
-                gap: isVeryShort ? 8 : isVeryNarrow ? 10 : 12,
-                ...(!isDark && {
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: -4 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 12,
-                  elevation: 8,
-                }),
+                backgroundColor: colors.surfaceElevated,
+                borderTopColor: colors.border,
+                paddingHorizontal: spacing.xxl,
+                paddingTop: spacing.lg,
+                paddingBottom: Math.max(insets.bottom, spacing.lg),
+                gap: spacing.md,
               },
             ]}>
-            <Pressable
-              onPress={onCancel}
-              style={({ pressed }) => [
-                styles.footerBtn,
-                styles.cancelBtn,
-                {
-                  backgroundColor: inputBg,
-                  borderWidth: 1.5,
-                  borderColor: borderColor,
-                  height: footerBtnHeight,
-                  borderRadius: isVeryShort ? 12 : isNarrow ? 14 : 16,
-                },
-                pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
-              ]}>
-              <ThemedText
-                style={[
-                  styles.cancelBtnText,
-                  {
-                    color: textColor,
-                    fontSize: isVeryShort ? 14 : isVeryNarrow ? 15 : 16,
-                    fontWeight: '600'
-                  },
-                ]}>
-                Cancel
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={onSave}
-              disabled={!category || (urlEditable && !url.trim()) || isSaving}
-              style={({ pressed }) => [
-                styles.footerBtn,
-                {
-                  height: footerBtnHeight,
-                  borderRadius: isVeryShort ? 12 : isNarrow ? 14 : 16,
-                },
-                (!category || (urlEditable && !url.trim()) || isSaving) && { opacity: 0.5 },
-                pressed &&
-                  category &&
-                  !(urlEditable && !url.trim()) &&
-                  !isSaving && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}>
-              <LinearGradient
-                colors={category && !isSaving ? gradientColors : gradientDisabled}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.saveGradientBg}>
-                <View style={styles.saveBtnContent}>
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color={saveBtnTextColor} />
-                  ) : (
-                    <>
-                      <Check size={isVeryShort ? 18 : 20} color={saveBtnTextColor} strokeWidth={2.5} />
-                      <Text
-                        style={[
-                          styles.saveBtnText,
-                          {
-                            color: saveBtnTextColor,
-                            fontSize: isVeryShort ? 14 : isVeryNarrow ? 15 : 16,
-                          },
-                        ]}>
-                        Save Video
-                      </Text>
-                    </>
-                  )}
-                </View>
-              </LinearGradient>
-            </Pressable>
+            <View style={{ flex: 1 }}>
+              <Button label="Cancel" variant="secondary" onPress={onCancel} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button label="Save Video" variant="primary" onPress={onSave} disabled={!canSave} loading={isSaving} />
+            </View>
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -693,26 +339,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   sheet: {
-    width: '100%',
     flexDirection: 'column',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
     overflow: 'hidden',
   },
-  header: {
-    paddingTop: 10,
-    paddingBottom: 16,
-    paddingHorizontal: 24,
-  },
-  headerAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-  },
+  header: {},
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -721,178 +351,56 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
     flex: 1,
   },
-  titleIconWrap: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
   titleIcon: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 2,
-    opacity: 0.7,
   },
   closeBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { opacity: 0.85 },
   body: {
     flex: 1,
   },
-  bodyContent: {
-    flexGrow: 1,
-  },
-  section: {
-    marginBottom: 28,
-  },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 12,
   },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
   },
-  requiredBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  requiredBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  optional: { fontWeight: '500', textTransform: 'none' },
   urlCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 18,
+    borderWidth: 1,
   },
   urlIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  urlIcon: { marginRight: 10 },
-  urlText: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '500' },
-  urlInput: { padding: 0 },
-  categoryGrid: {
+  urlText: {
+    flex: 1,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-  },
-  categoryTile: {
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 2,
-    gap: 6,
-  },
-  checkWrap: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#50C878',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sourceTile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingLeft: 0,
-    paddingRight: 14,
-    borderRadius: 16,
-    borderWidth: 2,
-    minWidth: 110,
-  },
-  sourceBar: {
-    width: 5,
-    alignSelf: 'stretch',
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-    marginRight: 12,
-  },
-  errorContainer: {
-    padding: 14,
-    borderRadius: 14,
-    marginTop: 8,
-  },
-  errorText: {
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   footer: {
     flexDirection: 'row',
-    gap: 12,
-    borderTopWidth: 1.5,
-  },
-  footerBtn: {
-    flex: 1,
-    height: 56,
-    borderRadius: 16,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelBtn: {},
-  cancelBtnText: {
-    fontWeight: '600',
-  },
-  saveGradientBg: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  saveBtnContent: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  saveBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    borderTopWidth: 1,
   },
 });

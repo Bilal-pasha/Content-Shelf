@@ -48,7 +48,7 @@ export class MailService {
     await this.transporter.sendMail({
       from,
       to,
-      subject: 'Reset your Video Vault password',
+      subject: 'Reset your Content Shelf password',
       text: `We received a request to reset your password. Open this link to choose a new one (expires in 30 minutes):\n\n${resetLink}\n\nIf you didn't request this, you can ignore this email.`,
       html: `<p>We received a request to reset your password.</p><p><a href="${resetLink}">Reset your password</a> (expires in 30 minutes)</p><p>If you didn't request this, you can ignore this email.</p>`,
     });
