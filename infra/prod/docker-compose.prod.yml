@@ -37,7 +37,9 @@ services:
       retries: 5
 
   server:
-    image: ${REGISTRY}/${IMAGE_NAME_LOWER}/server:latest
+    build:
+      context: ../../server
+      dockerfile: Dockerfile
     container_name: video-app-server
     restart: unless-stopped
     env_file:

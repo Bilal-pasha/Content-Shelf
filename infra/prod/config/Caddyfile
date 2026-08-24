@@ -1,8 +1,8 @@
 {
-    email admin@example.com
+    email {$CADDY_EMAIL}
 }
 
-:80 {
+{$BACKEND_DOMAIN} {
     # =========================
     # API Routes → Backend
     # =========================
