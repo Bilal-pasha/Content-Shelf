@@ -14,6 +14,41 @@ export function getYoutubeThumbnailUrl(url: string): string | null {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+/**
+ * YouTube's public oEmbed endpoint returns title/author_name for any public
+ * video — more reliable than OG scraping and gives us author_name for free
+ * (used to enrich semantic search embedding text).
+ */
+export async function fetchYoutubeOembed(url: string): Promise<{
+  title: string | null;
+  authorName: string | null;
+  thumbnailUrl: string | null;
+} | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await safeFetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+      { signal: controller.signal },
+    );
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as {
+      title?: string;
+      author_name?: string;
+      thumbnail_url?: string;
+    };
+    return {
+      title: data.title ?? null,
+      authorName: data.author_name ?? null,
+      thumbnailUrl: data.thumbnail_url ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Browser-like User-Agent to improve OG/thumbnail fetch for Instagram, Facebook, etc. */
 const BROWSER_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';

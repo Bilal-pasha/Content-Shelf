@@ -53,6 +53,13 @@ export class Link {
   })
   thumbnailUrl: string | null;
 
+  // TypeORM has no native `vector` type. The real column is vector(1536)
+  // (see migration); this field is typed `text` + select:false only so a
+  // raw-query result can be read back if ever needed — writes/similarity
+  // queries always go through raw SQL, never through this field.
+  @Column({ type: 'text', nullable: true, select: false })
+  embedding: string | null;
+
   @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
 }

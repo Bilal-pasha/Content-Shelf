@@ -2,20 +2,28 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Linking,
-  ActivityIndicator,
   useWindowDimensions,
   Alert,
   FlatList,
+  Pressable,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { Plus } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { useAuth } from '@/providers/AuthProvider';
-import { useLinks } from '@/services/links/links.services';
+import {
+  linksService,
+  useLinks,
+  useSemanticSearch,
+} from '@/services/links/links.services';
 import type { LinkSource, LinkCategory, SavedLink } from '@/services/links/links.types';
 import { PrivateRoutes } from '@/constants/routes';
 
@@ -29,6 +37,8 @@ import { DashboardSearch } from '@/components/dashboard/DashboardSearch';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { VideoBox } from '@/components/dashboard/VideoBox';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { SkeletonGrid } from '@/components/dashboard/SkeletonGrid';
+import { AddLinkSheet } from '@/components/save/AddLinkSheet';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -37,10 +47,15 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [source, setSource] = useState<'' | LinkSource>('');
   const [category, setCategory] = useState<'' | LinkCategory>('');
+  const [showAddSheet, setShowAddSheet] = useState(false);
+  const [manualUrl, setManualUrl] = useState('');
+  const [manualCategory, setManualCategory] = useState<LinkCategory | null>(null);
+  const [manualSource, setManualSource] = useState<LinkSource | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
@@ -67,10 +82,47 @@ export default function DashboardScreen() {
     'background',
   );
 
-  const { data: links = [], isLoading } = useLinks({
-    search: debouncedSearch.trim() || undefined,
+  const {
+    data: filteredLinks = [],
+    isLoading: isFilterLoading,
+    isRefetching: isFilterRefetching,
+    refetch: refetchFilter,
+  } = useLinks({
+    // Semantic search (below) replaces plain substring search entirely
+    // when active — this query is the pill-filtered browsing path only.
+    search: undefined,
     source: source || undefined,
     category: category || undefined,
+  });
+
+  // Combining semantic search with source/category filters is a reasonable
+  // future improvement — not built in this prototype; search is query-only.
+  const isSearching = debouncedSearch.trim().length > 0;
+  const {
+    data: searchResults = [],
+    isLoading: isSearchLoading,
+    isRefetching: isSearchRefetching,
+    refetch: refetchSearch,
+  } = useSemanticSearch(debouncedSearch.trim());
+
+  const links = isSearching ? searchResults : filteredLinks;
+  const isLoading = isSearching ? isSearchLoading : isFilterLoading;
+  const isRefetching = isSearching ? isSearchRefetching : isFilterRefetching;
+  const refetch = isSearching ? refetchSearch : refetchFilter;
+
+  const addLinkMutation = useMutation({
+    mutationFn: linksService.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['links'] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowAddSheet(false);
+      setManualUrl('');
+      setManualCategory(null);
+      setManualSource(null);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
   });
 
   const handleOpenLink = useCallback((url: string) => {
@@ -87,6 +139,28 @@ export default function DashboardScreen() {
       { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
     ]);
   }, [signOut]);
+
+  const handleOpenAddSheet = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    addLinkMutation.reset();
+    setShowAddSheet(true);
+  }, [addLinkMutation]);
+
+  const handleCancelAddSheet = useCallback(() => {
+    setShowAddSheet(false);
+    setManualUrl('');
+    setManualCategory(null);
+    setManualSource(null);
+  }, []);
+
+  const handleSaveManualLink = useCallback(() => {
+    if (!manualUrl.trim() || !manualCategory) return;
+    addLinkMutation.mutate({
+      url: manualUrl.trim(),
+      category: manualCategory,
+      ...(manualSource && { source: manualSource }),
+    });
+  }, [manualUrl, manualCategory, manualSource, addLinkMutation]);
 
   const hasFilters = Boolean(search.trim() || source || category);
 
@@ -126,6 +200,13 @@ export default function DashboardScreen() {
           columns > 1 ? { gap: CARD_GAP, paddingHorizontal: HORZ_PADDING } : undefined
         }
         renderItem={renderItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching && !isLoading}
+            onRefresh={refetch}
+            tintColor="#2563EB"
+          />
+        }
         ListHeaderComponent={
           <>
             <DashboardHeader
@@ -165,10 +246,8 @@ export default function DashboardScreen() {
             </Animated.View>
 
             {isLoading && (
-              <Animated.View
-                entering={FadeIn.duration(300)}
-                style={styles.loading}>
-                <ActivityIndicator size="large" color="#2563EB" />
+              <Animated.View entering={FadeIn.duration(300)}>
+                <SkeletonGrid columns={columns} cardWidth={cardWidth} tint={placeholderBg} />
               </Animated.View>
             )}
           </>
@@ -182,6 +261,36 @@ export default function DashboardScreen() {
             />
           ) : null
         }
+      />
+
+      <Pressable
+        onPress={handleOpenAddSheet}
+        accessibilityRole="button"
+        accessibilityLabel="Add a video link"
+        style={({ pressed }) => [
+          styles.fab,
+          { bottom: (insets.bottom || 16) + 16, opacity: pressed ? 0.9 : 1 },
+        ]}>
+        <Plus size={26} color="#fff" strokeWidth={2.5} />
+      </Pressable>
+
+      <AddLinkSheet
+        visible={showAddSheet}
+        url={manualUrl}
+        category={manualCategory}
+        source={manualSource}
+        onCategoryChange={setManualCategory}
+        onSourceChange={setManualSource}
+        onUrlChange={setManualUrl}
+        onSave={handleSaveManualLink}
+        onCancel={handleCancelAddSheet}
+        isSaving={addLinkMutation.isPending}
+        error={addLinkMutation.isError ? 'Could not save. Try again.' : null}
+        backgroundColor={backgroundColor}
+        textColor={textColor}
+        iconColor={iconColor}
+        inputBg={inputBg}
+        borderColor={borderColor}
       />
     </ThemedView>
   );
@@ -200,5 +309,19 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 18, fontWeight: '600' },
   sectionCount: { fontSize: 14 },
-  loading: { paddingVertical: 48, alignItems: 'center' },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
 });

@@ -7,3 +7,4 @@ video-application-ssh-key.pem
 !*/.env.example
 infra/**/.env
 infra/**/.env.*
+backend/.env

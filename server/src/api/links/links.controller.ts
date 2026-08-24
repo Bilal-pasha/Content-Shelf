@@ -1,4 +1,12 @@
-import { Controller, Post, Get, Body, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -34,6 +42,34 @@ export class LinksController {
       success: true,
       message: 'Link saved successfully',
       data: this.toDto(link),
+    };
+  }
+
+  @Get('search')
+  @ApiOperation({
+    summary:
+      'Semantic search over saved links (YouTube only in this v1 prototype)',
+  })
+  @ApiResponse({ status: 200, description: 'Ranked search results' })
+  @ApiResponse({ status: 400, description: 'Missing query parameter "q"' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async search(
+    @CurrentUser() user: User,
+    @Query('q') q: string,
+    @Query('limit') limit?: string,
+  ): Promise<{ success: boolean; message: string; data: LinkResponseDto[] }> {
+    if (!q?.trim()) {
+      throw new BadRequestException('Query parameter "q" is required');
+    }
+    const links = await this.linksService.searchSemantic(
+      user.id,
+      q,
+      limit !== undefined ? Number(limit) : undefined,
+    );
+    return {
+      success: true,
+      message: 'Search results retrieved successfully',
+      data: links.map((l) => this.toDto(l)),
     };
   }
 

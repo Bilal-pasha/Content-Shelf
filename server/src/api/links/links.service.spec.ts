@@ -1,0 +1,90 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { LinksService } from './links.service';
+import { Link } from './link.entity';
+import { EmbeddingService } from './embedding.service';
+
+type QueryBuilderMock = {
+  where: jest.Mock;
+  andWhere: jest.Mock;
+  orderBy: jest.Mock;
+  setParameter: jest.Mock;
+  skip: jest.Mock;
+  take: jest.Mock;
+  getMany: jest.Mock<Promise<Link[]>, []>;
+};
+
+function makeQueryBuilderMock(result: Link[] = []): QueryBuilderMock {
+  const qb: Partial<QueryBuilderMock> = {};
+  qb.where = jest.fn(() => qb);
+  qb.andWhere = jest.fn(() => qb);
+  qb.orderBy = jest.fn(() => qb);
+  qb.setParameter = jest.fn(() => qb);
+  qb.skip = jest.fn(() => qb);
+  qb.take = jest.fn(() => qb);
+  qb.getMany = jest.fn(() => Promise.resolve(result));
+  return qb as QueryBuilderMock;
+}
+
+describe('LinksService', () => {
+  let service: LinksService;
+  let repo: { createQueryBuilder: jest.Mock; query: jest.Mock };
+  let embeddingService: { embed: jest.Mock };
+  let qbMock: QueryBuilderMock;
+
+  beforeEach(async () => {
+    qbMock = makeQueryBuilderMock([]);
+    repo = {
+      createQueryBuilder: jest.fn(() => qbMock),
+      query: jest.fn(() => Promise.resolve()),
+    };
+    embeddingService = {
+      embed: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        LinksService,
+        { provide: getRepositoryToken(Link), useValue: repo },
+        { provide: EmbeddingService, useValue: embeddingService },
+      ],
+    }).compile();
+
+    service = module.get(LinksService);
+  });
+
+  describe('searchSemantic', () => {
+    it('falls back to the ILIKE findAll path when embedding fails', async () => {
+      embeddingService.embed.mockResolvedValue(null);
+      const fallbackResult = [{ id: 'link-1' } as Link];
+      const findAllSpy = jest
+        .spyOn(service, 'findAll')
+        .mockResolvedValue(fallbackResult);
+
+      const result = await service.searchSemantic('user-1', 'react native');
+
+      expect(embeddingService.embed).toHaveBeenCalledWith('react native');
+      expect(findAllSpy).toHaveBeenCalledWith('user-1', {
+        search: 'react native',
+        limit: 20,
+      });
+      expect(result).toBe(fallbackResult);
+      // Vector similarity path must not run when the embed call failed.
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('runs the cosine-distance query when embedding succeeds', async () => {
+      embeddingService.embed.mockResolvedValue([0.1, 0.2, 0.3]);
+      const vectorResult = [{ id: 'link-2' } as Link];
+      qbMock.getMany.mockResolvedValue(vectorResult);
+
+      const result = await service.searchSemantic('user-1', 'react native');
+
+      expect(repo.createQueryBuilder).toHaveBeenCalledWith('link');
+      expect(qbMock.andWhere).toHaveBeenCalledWith(
+        'link.embedding IS NOT NULL',
+      );
+      expect(result).toBe(vectorResult);
+    });
+  });
+});

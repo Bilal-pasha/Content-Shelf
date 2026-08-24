@@ -11,4 +11,5 @@ export const API_ENDPOINTS = {
   AUTH_SOCIAL_GOOGLE: '/v1/api/auth/google',
   LINKS: '/v1/api/links',
   LINKS_LIST: '/v1/api/links',
+  LINKS_SEARCH: '/v1/api/links/search',
 } as const;

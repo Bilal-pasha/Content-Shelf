@@ -35,6 +35,18 @@ export const linksService = {
     }
     return data.data as SavedLink[];
   },
+
+  async searchSemantic(query: string, limit?: number): Promise<SavedLink[]> {
+    const params = new URLSearchParams({ q: query });
+    if (limit) params.set('limit', String(limit));
+    const { data } = await httpPrivate.get<ApiLinkResponse>(
+      `${API_ENDPOINTS.LINKS_SEARCH}?${params.toString()}`,
+    );
+    if (!data.success || !Array.isArray(data.data)) {
+      throw new Error(data.message || 'Failed to search links');
+    }
+    return data.data as SavedLink[];
+  },
 };
 
 export function useLinks(opts?: {
@@ -50,5 +62,13 @@ export function useLinks(opts?: {
       opts?.category ?? '',
     ],
     queryFn: () => linksService.list(opts),
+  });
+}
+
+export function useSemanticSearch(query: string) {
+  return useQuery({
+    queryKey: ['links', 'search', query],
+    queryFn: () => linksService.searchSemantic(query),
+    enabled: query.trim().length > 0,
   });
 }

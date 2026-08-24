@@ -37,6 +37,10 @@ class EnvironmentVariables {
   @IsString()
   @MinLength(1)
   POSTGRES_DB: string;
+
+  @IsOptional()
+  @IsString()
+  OPENAI_API_KEY?: string;
 }
 
 /**

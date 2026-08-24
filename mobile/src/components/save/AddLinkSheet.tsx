@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   Text,
+  TextInput,
   Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +56,7 @@ export function AddLinkSheet({
   source,
   onCategoryChange,
   onSourceChange,
+  onUrlChange,
   onSave,
   onCancel,
   isSaving,
@@ -71,6 +73,7 @@ export function AddLinkSheet({
   source: LinkSource | null;
   onCategoryChange: (c: LinkCategory) => void;
   onSourceChange: (s: LinkSource | null) => void;
+  onUrlChange?: (u: string) => void;
   onSave: () => void;
   onCancel: () => void;
   isSaving: boolean;
@@ -81,6 +84,7 @@ export function AddLinkSheet({
   inputBg: string;
   borderColor: string;
 }) {
+  const urlEditable = Boolean(onUrlChange);
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const primaryColor = useThemeColor(
@@ -419,17 +423,38 @@ export function AddLinkSheet({
                     strokeWidth={2.5}
                   />
                 </View>
-                <ThemedText
-                  style={[
-                    styles.urlText,
-                    {
-                      color: textColor,
-                      fontSize: isVeryShort ? 12 : isVeryNarrow ? 13 : 14,
-                    },
-                  ]}
-                  numberOfLines={isVeryShort ? 1 : 2}>
-                  {url ? truncateUrl(url, urlTruncate) : 'No link provided'}
-                </ThemedText>
+                {urlEditable ? (
+                  <TextInput
+                    style={[
+                      styles.urlText,
+                      styles.urlInput,
+                      {
+                        color: textColor,
+                        fontSize: isVeryShort ? 12 : isVeryNarrow ? 13 : 14,
+                      },
+                    ]}
+                    value={url}
+                    onChangeText={onUrlChange}
+                    placeholder="Paste a video link…"
+                    placeholderTextColor={iconColor}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    returnKeyType="done"
+                  />
+                ) : (
+                  <ThemedText
+                    style={[
+                      styles.urlText,
+                      {
+                        color: textColor,
+                        fontSize: isVeryShort ? 12 : isVeryNarrow ? 13 : 14,
+                      },
+                    ]}
+                    numberOfLines={isVeryShort ? 1 : 2}>
+                    {url ? truncateUrl(url, urlTruncate) : 'No link provided'}
+                  </ThemedText>
+                )}
               </View>
             </View>
 
@@ -612,15 +637,18 @@ export function AddLinkSheet({
             </Pressable>
             <Pressable
               onPress={onSave}
-              disabled={!category || isSaving}
+              disabled={!category || (urlEditable && !url.trim()) || isSaving}
               style={({ pressed }) => [
                 styles.footerBtn,
                 {
                   height: footerBtnHeight,
                   borderRadius: isVeryShort ? 12 : isNarrow ? 14 : 16,
                 },
-                (!category || isSaving) && { opacity: 0.5 },
-                pressed && category && !isSaving && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                (!category || (urlEditable && !url.trim()) || isSaving) && { opacity: 0.5 },
+                pressed &&
+                  category &&
+                  !(urlEditable && !url.trim()) &&
+                  !isSaving && { opacity: 0.9, transform: [{ scale: 0.98 }] },
               ]}>
               <LinearGradient
                 colors={category && !isSaving ? gradientColors : gradientDisabled}
@@ -781,6 +809,7 @@ const styles = StyleSheet.create({
   },
   urlIcon: { marginRight: 10 },
   urlText: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '500' },
+  urlInput: { padding: 0 },
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
