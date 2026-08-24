@@ -1,4 +1,4 @@
-# Video Mobile Application
+# Content Shelf Application
 
 A full-stack mobile application with NestJS backend and React Native/Expo frontend, featuring Google OAuth authentication.
 
