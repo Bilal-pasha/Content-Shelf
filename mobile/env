@@ -7,7 +7,7 @@
 # For iOS simulator: http://localhost:3000
 # For physical device: http://<your-computer-ip>:3000
 # Example: http://192.168.1.100:3000
-EXPO_PUBLIC_API_URL=http://18.212.234.107
+EXPO_PUBLIC_API_URL=https://content-shelf.stackeylabs.com
 
 # Google OAuth Client IDs
 # Web Client ID (required for both platforms)

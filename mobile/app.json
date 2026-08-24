@@ -58,7 +58,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.video-mobile-application.app",
       "associatedDomains": [
-        "applinks:online2.video-mobile-application.com"
+        "applinks:content-shelf.stackeylabs.com"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -82,7 +82,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "online2.video-mobile-application.com"
+              "host": "content-shelf.stackeylabs.com"
             },
             {
               "scheme": "video-mobile-application"
