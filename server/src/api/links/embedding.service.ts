@@ -6,6 +6,14 @@ const EMBEDDING_MODEL = 'Qwen/Qwen3-Embedding-8B';
 const DEEPINFRA_EMBEDDINGS_URL =
   'https://api.deepinfra.com/v1/openai/embeddings';
 
+// Qwen3-Embedding is trained asymmetrically: query-side text is expected to
+// carry a task instruction, document-side text is embedded plain. Applying
+// this only on the query side (see `embed(text, { isQuery: true })`) aligns
+// retrieval with how the model was actually trained rather than treating
+// both sides identically.
+const QUERY_INSTRUCTION =
+  'Instruct: Given a search query, retrieve saved videos relevant to the query\nQuery: ';
+
 @Injectable()
 export class EmbeddingService {
   constructor(
@@ -14,9 +22,14 @@ export class EmbeddingService {
     private readonly logger: PinoLogger,
   ) {}
 
-  async embed(text: string): Promise<number[] | null> {
+  async embed(
+    text: string,
+    options?: { isQuery?: boolean },
+  ): Promise<number[] | null> {
     const apiKey = this.configService.get<string>('DEEPINFRA_API_KEY');
     if (!apiKey) return null;
+
+    const input = options?.isQuery ? `${QUERY_INSTRUCTION}${text}` : text;
 
     try {
       const response = await fetch(DEEPINFRA_EMBEDDINGS_URL, {
@@ -25,7 +38,7 @@ export class EmbeddingService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({ model: EMBEDDING_MODEL, input: text }),
+        body: JSON.stringify({ model: EMBEDDING_MODEL, input }),
       });
       if (!response.ok) {
         this.logger.warn(

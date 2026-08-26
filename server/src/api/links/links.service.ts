@@ -13,6 +13,8 @@ import {
 } from './utils/og-metadata.util';
 import { EmbeddingService, buildEmbeddingInput } from './embedding.service';
 
+const MAX_SEMANTIC_DISTANCE = 0.5;
+
 @Injectable()
 export class LinksService {
   constructor(
@@ -165,7 +167,9 @@ export class LinksService {
   ): Promise<Link[]> {
     const clampedLimit = Math.min(Math.max(limit, 1), 100);
 
-    const embedding = await this.embeddingService.embed(query);
+    const embedding = await this.embeddingService.embed(query, {
+      isQuery: true,
+    });
     if (!embedding) {
       // Embedding failed — never leave the user with zero results just
       // because the embedding call failed.
@@ -177,13 +181,20 @@ export class LinksService {
     // `embedding IS NOT NULL` filter already scopes results to YouTube by
     // construction. This keeps searchSemantic platform-agnostic so adding
     // other platforms later requires no change to this method.
+    //
+    // Cosine distance (`<=>`) ranges 0 (identical) to 2 (opposite); below
+    // ~0.5 is a reasonable "actually related" cutoff for this embedding
+    // model. Without it, a query with no good matches still returns its
+    // closest-available links ranked as if they were relevant.
     const vectorLiteral = `[${embedding.join(',')}]`;
     return this.linkRepository
       .createQueryBuilder('link')
       .where('link.user_id = :userId', { userId })
       .andWhere('link.embedding IS NOT NULL')
+      .andWhere('link.embedding <=> CAST(:embedding AS vector) < :maxDistance')
       .orderBy('link.embedding <=> CAST(:embedding AS vector)')
       .setParameter('embedding', vectorLiteral)
+      .setParameter('maxDistance', MAX_SEMANTIC_DISTANCE)
       .take(clampedLimit)
       .getMany();
   }
