@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Link, LinkSource } from './link.entity';
@@ -13,18 +13,38 @@ import {
 } from './utils/og-metadata.util';
 import { EmbeddingService, buildEmbeddingInput } from './embedding.service';
 import { CategorizationService } from './categorization.service';
+import {
+  QueryGenerationService,
+  LinkMetaForQueries,
+} from './query-generation.service';
 import { FoldersService } from '../folders/folders.service';
 import { capitalize } from '../folders/folder-defaults';
 
-const MAX_SEMANTIC_DISTANCE = 0.5;
+// Cosine distance (`<=>`) ranges 0 (identical) to 2 (opposite). A link is
+// scored by its closest-matching search vector; below this cutoff counts as
+// "actually related". Tune against a fixed set of real queries.
+const MAX_SEMANTIC_DISTANCE = 0.55;
+
+// Seed metadata passed to the background indexer — whatever create() (or the
+// backfill) already knows; indexLink enriches the rest off the hot path.
+interface IndexSeed {
+  source: LinkSource;
+  url: string;
+  title: string | null;
+  authorName: string | null;
+  category: string | null;
+}
 
 @Injectable()
 export class LinksService {
+  private readonly logger = new Logger(LinksService.name);
+
   constructor(
     @InjectRepository(Link)
     private readonly linkRepository: Repository<Link>,
     private readonly embeddingService: EmbeddingService,
     private readonly categorizationService: CategorizationService,
+    private readonly queryGenerationService: QueryGenerationService,
     private readonly foldersService: FoldersService,
   ) {}
 
@@ -108,26 +128,103 @@ export class LinksService {
     });
     const saved = await this.linkRepository.save(link);
 
-    // v1 prototype: only YouTube links get embedded/semantically searchable.
-    // Best-effort — a failed/slow embed can never fail or delay link
-    // creation, so the saved link is returned regardless of the outcome.
-    if (source === 'youtube') {
-      const embedding = await this.embeddingService.embed(
-        buildEmbeddingInput({
-          title,
-          authorName: youtubeAuthorName,
-          category,
-        }),
-      );
-      if (embedding) {
-        await this.linkRepository.query(
-          `UPDATE links SET embedding = $1::vector WHERE id = $2`,
-          [`[${embedding.join(',')}]`, saved.id],
-        );
-      }
-    }
+    // Build the semantic-search index for this link in the background. Fired
+    // and NOT awaited: it makes an LLM call plus a batch-embed round trip
+    // (seconds), and the share sheet is waiting on this response. indexLink
+    // owns all its error handling and never throws.
+    void this.indexLink(saved.id, {
+      source,
+      url: dto.url,
+      title,
+      authorName: youtubeAuthorName,
+      category,
+    });
 
     return saved;
+  }
+
+  /**
+   * doc2query indexing for one link, run in the background after save.
+   * Enriches metadata (oEmbed author/url, og:description) off the hot path,
+   * asks the LLM for likely search phrases, embeds those plus a canonical
+   * metadata row in one batch, and replaces the link's rows in
+   * link_search_vectors. Best-effort: any failure is logged and the link is
+   * simply left unindexed (searchSemantic still has the ILIKE fallback).
+   */
+  private async indexLink(linkId: string, seed: IndexSeed): Promise<void> {
+    try {
+      let title = seed.title;
+      let authorName = seed.authorName;
+      let authorUrl: string | null = null;
+
+      if (seed.source === 'youtube') {
+        const oembed = await fetchYoutubeOembed(seed.url);
+        if (oembed) {
+          title ??= oembed.title;
+          authorName ??= oembed.authorName;
+          authorUrl = oembed.authorUrl;
+        }
+      }
+
+      const og = await fetchOgMetadata(seed.url);
+      title ??= og.title;
+      const description = og.description;
+
+      const meta: LinkMetaForQueries = {
+        source: seed.source,
+        title,
+        authorName,
+        authorUrl,
+        description,
+        category: seed.category,
+        url: seed.url,
+      };
+
+      const canonical = buildEmbeddingInput({
+        title,
+        authorName,
+        description,
+        category: seed.category,
+      });
+      const queries = await this.queryGenerationService.generate(meta);
+
+      const rows: { kind: string; text: string }[] = [];
+      if (canonical) rows.push({ kind: 'canonical', text: canonical });
+      for (const q of queries) rows.push({ kind: 'generated_query', text: q });
+      if (rows.length === 0) return;
+
+      const vectors = await this.embeddingService.embedBatch(
+        rows.map((r) => r.text),
+      );
+      if (!vectors) return;
+
+      const embedded = rows
+        .map((r, i) => ({ ...r, vec: vectors[i] }))
+        .filter((r): r is { kind: string; text: string; vec: number[] } =>
+          Array.isArray(r.vec),
+        );
+      if (embedded.length === 0) return;
+
+      await this.linkRepository.manager.transaction(async (trx) => {
+        await trx.query(`DELETE FROM link_search_vectors WHERE link_id = $1`, [
+          linkId,
+        ]);
+        const tuples: string[] = [];
+        const params: unknown[] = [linkId];
+        embedded.forEach((r, i) => {
+          const b = i * 3;
+          tuples.push(`($1, $${b + 2}, $${b + 3}, $${b + 4}::vector)`);
+          params.push(r.kind, r.text, `[${r.vec.join(',')}]`);
+        });
+        await trx.query(
+          `INSERT INTO link_search_vectors (link_id, kind, text, embedding)
+           VALUES ${tuples.join(', ')}`,
+          params,
+        );
+      });
+    } catch (err) {
+      this.logger.warn(`indexLink failed for ${linkId}: ${String(err)}`);
+    }
   }
 
   /**
@@ -260,59 +357,46 @@ export class LinksService {
       return this.findAll(userId, { search: query, limit: clampedLimit });
     }
 
-    // No explicit `source = 'youtube'` filter here — deliberately. Only
-    // YouTube links get an embedding in this v1 prototype, so the
-    // `embedding IS NOT NULL` filter already scopes results to YouTube by
-    // construction. This keeps searchSemantic platform-agnostic so adding
-    // other platforms later requires no change to this method.
-    //
-    // Cosine distance (`<=>`) ranges 0 (identical) to 2 (opposite); below
-    // ~0.5 is a reasonable "actually related" cutoff for this embedding
-    // model. Without it, a query with no good matches still returns its
-    // closest-available links ranked as if they were relevant.
+    // Score each link by its closest-matching row in link_search_vectors
+    // (the canonical metadata row plus the LLM-generated query phrases).
+    // INNER JOIN + the distance filter already scope results to links that
+    // have an index and at least one row under the cutoff.
     const vectorLiteral = `[${embedding.join(',')}]`;
     return this.linkRepository
       .createQueryBuilder('link')
+      .innerJoin('link_search_vectors', 'v', 'v.link_id = link.id')
       .where('link.user_id = :userId', { userId })
-      .andWhere('link.embedding IS NOT NULL')
-      .andWhere('link.embedding <=> CAST(:embedding AS vector) < :maxDistance')
-      .orderBy('link.embedding <=> CAST(:embedding AS vector)')
+      .andWhere('v.embedding <=> CAST(:embedding AS vector) < :maxDistance')
+      .groupBy('link.id')
+      .orderBy('MIN(v.embedding <=> CAST(:embedding AS vector))', 'ASC')
       .setParameter('embedding', vectorLiteral)
       .setParameter('maxDistance', MAX_SEMANTIC_DISTANCE)
-      .take(clampedLimit)
+      .limit(clampedLimit)
       .getMany();
   }
 
   // Not wired to any route yet — for a future scheduled task or admin
-  // endpoint. Scoped to YouTube for this prototype; relax/generalize the
-  // source filter as other platforms get their own embedding-input fetchers.
-  async backfillMissingEmbeddings(batchSize = 50): Promise<number> {
+  // endpoint. Re-runs the doc2query indexer for links that have no rows in
+  // link_search_vectors yet (e.g. saved before this feature, or where the
+  // background pass failed).
+  async backfillLinkVectors(batchSize = 50): Promise<number> {
     const links = await this.linkRepository
       .createQueryBuilder('link')
-      .where('link.source = :source', { source: 'youtube' })
-      .andWhere('link.embedding IS NULL')
+      .leftJoin('link_search_vectors', 'v', 'v.link_id = link.id')
+      .where('v.id IS NULL')
       .take(batchSize)
       .getMany();
 
-    let updated = 0;
     for (const link of links) {
-      const oembed = await fetchYoutubeOembed(link.url);
-      const embedding = await this.embeddingService.embed(
-        buildEmbeddingInput({
-          title: link.title,
-          authorName: oembed?.authorName ?? null,
-          category: link.category,
-        }),
-      );
-      if (embedding) {
-        await this.linkRepository.query(
-          `UPDATE links SET embedding = $1::vector WHERE id = $2`,
-          [`[${embedding.join(',')}]`, link.id],
-        );
-        updated++;
-      }
+      await this.indexLink(link.id, {
+        source: link.source,
+        url: link.url,
+        title: link.title,
+        authorName: null,
+        category: link.category,
+      });
     }
-    return updated;
+    return links.length;
   }
 
   private inferSource(url: string): LinkSource {

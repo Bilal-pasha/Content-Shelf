@@ -22,6 +22,7 @@ export function getYoutubeThumbnailUrl(url: string): string | null {
 export async function fetchYoutubeOembed(url: string): Promise<{
   title: string | null;
   authorName: string | null;
+  authorUrl: string | null;
   thumbnailUrl: string | null;
 } | null> {
   try {
@@ -37,11 +38,13 @@ export async function fetchYoutubeOembed(url: string): Promise<{
     const data = (await res.json()) as {
       title?: string;
       author_name?: string;
+      author_url?: string;
       thumbnail_url?: string;
     };
     return {
       title: data.title ?? null,
       authorName: data.author_name ?? null,
+      authorUrl: data.author_url ?? null,
       thumbnailUrl: data.thumbnail_url ?? null,
     };
   } catch {
@@ -229,10 +232,12 @@ export async function getLinkedInThumbnailUrl(
 export async function fetchOgMetadata(url: string): Promise<{
   thumbnailUrl: string | null;
   title: string | null;
+  description: string | null;
 }> {
   const result = {
     thumbnailUrl: null as string | null,
     title: null as string | null,
+    description: null as string | null,
   };
 
   try {
@@ -277,6 +282,26 @@ export async function fetchOgMetadata(url: string): Promise<{
       );
     if (ogTitleMatch?.[1]) {
       result.title = ogTitleMatch[1].trim().slice(0, 500) || null;
+    }
+
+    // og:description (falling back to twitter:description / meta description)
+    // is the richest free content signal for non-YouTube links — used to
+    // seed doc2query search-phrase generation.
+    const descMatch =
+      html.match(
+        /<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i,
+      ) ??
+      html.match(
+        /<meta[^>]*content=["']([^"']*)["'][^>]*property=["']og:description["']/i,
+      ) ??
+      html.match(
+        /<meta[^>]*name=["']twitter:description["'][^>]*content=["']([^"']*)["']/i,
+      ) ??
+      html.match(
+        /<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i,
+      );
+    if (descMatch?.[1]) {
+      result.description = descMatch[1].trim().slice(0, 1000) || null;
     }
   } catch {
     // Ignore fetch/parse errors; caller proceeds without metadata
