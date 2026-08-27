@@ -56,22 +56,6 @@ export class Link {
   })
   thumbnailUrl: string | null;
 
-  // Transcript-derived description of the video's content, generated on save
-  // for YouTube links that have captions. Preferred over title/author as the
-  // text that gets embedded for semantic search.
-  @Column({ type: 'text', nullable: true })
-  summary: string | null;
-
-  // NULL = indexing not attempted, 'ok' = summarised from captions,
-  // 'no_transcript' = video had none, 'failed' = indexing threw.
-  @Column({
-    type: 'varchar',
-    length: 20,
-    nullable: true,
-    name: 'transcript_status',
-  })
-  transcriptStatus: string | null;
-
   // TypeORM has no native `vector` type. The real column is vector(1536)
   // (see migration); this field is typed `text` + select:false only so a
   // raw-query result can be read back if ever needed — writes/similarity

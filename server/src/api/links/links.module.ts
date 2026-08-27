@@ -5,18 +5,12 @@ import { LinksController } from './links.controller';
 import { LinksService } from './links.service';
 import { EmbeddingService } from './embedding.service';
 import { CategorizationService } from './categorization.service';
-import { SummarizationService } from './summarization.service';
 import { FoldersModule } from '../folders/folders.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Link]), FoldersModule],
   controllers: [LinksController],
-  providers: [
-    LinksService,
-    EmbeddingService,
-    CategorizationService,
-    SummarizationService,
-  ],
+  providers: [LinksService, EmbeddingService, CategorizationService],
   exports: [LinksService, EmbeddingService],
 })
 export class LinksModule {}
