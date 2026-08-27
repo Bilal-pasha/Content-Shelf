@@ -1,4 +1,11 @@
-import { YoutubeTranscript, YoutubeTranscriptError } from 'youtube-transcript';
+import {
+  YoutubeTranscript,
+  YoutubeTranscriptDisabledError,
+  YoutubeTranscriptNotAvailableError,
+  YoutubeTranscriptNotAvailableLanguageError,
+  YoutubeTranscriptTooManyRequestError,
+  YoutubeTranscriptVideoUnavailableError,
+} from 'youtube-transcript';
 
 /**
  * Best-effort fetch of a YouTube video's caption text (auto-generated or
@@ -11,10 +18,10 @@ import { YoutubeTranscript, YoutubeTranscriptError } from 'youtube-transcript';
  * scrape no longer works (the caption `baseUrl` now needs a proof-of-origin
  * token).
  *
- * Returns null on any failure — no captions, captions disabled, rate
- * limited, video unavailable — and never throws. No language is requested,
- * so whatever track YouTube returns is used (a non-English transcript still
- * embeds fine; the embedding model is multilingual).
+ * Never throws. Returns a discriminated result so the caller can tell a
+ * video that genuinely has no captions ('no-captions', an expected outcome
+ * for silent/music/text-overlay Shorts) apart from a transient failure
+ * ('rate-limited', 'error') that is worth retrying later.
  *
  * SSRF: the library fetches only fixed youtube.com / googleapis.com hosts,
  * so the URL is not attacker-controlled and doesn't go through safeFetch.
@@ -28,6 +35,18 @@ const REQUEST_TIMEOUT_MS = 10000;
 // A long video's transcript is mostly filler for our purposes and the
 // summarizer truncates anyway; keep memory/logs bounded.
 const MAX_TRANSCRIPT_CHARS = 20000;
+
+export type TranscriptResult =
+  | { text: string; reason?: undefined }
+  | {
+      text: null;
+      reason:
+        | 'no-id'
+        | 'no-captions'
+        | 'rate-limited'
+        | 'unavailable'
+        | 'error';
+    };
 
 export function getYoutubeVideoId(url: string): string | null {
   return url.match(YOUTUBE_VIDEO_ID_REGEX)?.[1] ?? null;
@@ -46,9 +65,9 @@ const timeoutFetch = (
 
 export async function fetchYoutubeTranscript(
   url: string,
-): Promise<string | null> {
+): Promise<TranscriptResult> {
   const videoId = getYoutubeVideoId(url);
-  if (!videoId) return null;
+  if (!videoId) return { text: null, reason: 'no-id' };
 
   try {
     const segments = await YoutubeTranscript.fetchTranscript(videoId, {
@@ -61,14 +80,24 @@ export async function fetchYoutubeTranscript(
       .replace(/\s+/g, ' ')
       .trim();
 
-    return text.length > 0 ? text.slice(0, MAX_TRANSCRIPT_CHARS) : null;
+    return text.length > 0
+      ? { text: text.slice(0, MAX_TRANSCRIPT_CHARS) }
+      : { text: null, reason: 'no-captions' };
   } catch (err) {
-    // Typed errors from the library (disabled, unavailable, rate limited, no
-    // captions) are all expected "no transcript" outcomes. Anything else is
-    // swallowed too so indexing falls back to title-only embedding.
-    if (!(err instanceof YoutubeTranscriptError)) {
-      console.warn('fetchYoutubeTranscript unexpected error:', err);
+    if (err instanceof YoutubeTranscriptTooManyRequestError) {
+      return { text: null, reason: 'rate-limited' };
     }
-    return null;
+    if (
+      err instanceof YoutubeTranscriptDisabledError ||
+      err instanceof YoutubeTranscriptNotAvailableError ||
+      err instanceof YoutubeTranscriptNotAvailableLanguageError
+    ) {
+      return { text: null, reason: 'no-captions' };
+    }
+    if (err instanceof YoutubeTranscriptVideoUnavailableError) {
+      return { text: null, reason: 'unavailable' };
+    }
+    console.warn('fetchYoutubeTranscript unexpected error:', err);
+    return { text: null, reason: 'error' };
   }
 }

@@ -134,12 +134,23 @@ export class LinksService {
     return saved;
   }
 
+  // fetchYoutubeTranscript `reason` -> transcript_status column value.
+  // 'no_transcript' and 'unavailable' are terminal; 'rate_limited' and
+  // 'failed' are what backfillMissingEmbeddings retries.
+  private static readonly TRANSCRIPT_STATUS: Record<string, string> = {
+    'no-id': 'no_transcript',
+    'no-captions': 'no_transcript',
+    unavailable: 'unavailable',
+    'rate-limited': 'rate_limited',
+    error: 'failed',
+  };
+
   /**
    * Transcript -> summary -> embedding pass for one YouTube link, run in the
    * background after the link is saved. Every step is best-effort: no
    * transcript falls back to embedding title/author, a failed embed leaves
-   * the existing vector untouched, and any throw is caught and recorded as
-   * transcript_status = 'failed' for a later retry.
+   * the existing vector untouched. transcript_status records why a
+   * transcript was or wasn't obtained.
    */
   private async indexYoutubeLink(
     linkId: string,
@@ -152,13 +163,23 @@ export class LinksService {
   ): Promise<void> {
     try {
       const transcript = await fetchYoutubeTranscript(meta.url);
+      const transcriptStatus = transcript.text
+        ? 'ok'
+        : (LinksService.TRANSCRIPT_STATUS[transcript.reason ?? 'error'] ??
+          'failed');
+
+      if (!transcript.text) {
+        this.logger.warn(
+          `No transcript for ${linkId} (${meta.url}): ${transcript.reason}`,
+        );
+      }
 
       let summary: string | null = null;
-      if (transcript) {
+      if (transcript.text) {
         summary = await this.summarizationService.summarize({
           title: meta.title,
           authorName: meta.authorName,
-          transcript,
+          transcript: transcript.text,
         });
       }
 
@@ -179,7 +200,7 @@ export class LinksService {
           WHERE id = $4`,
         [
           summary,
-          transcript ? 'ok' : 'no_transcript',
+          transcriptStatus,
           embedding ? `[${embedding.join(',')}]` : null,
           linkId,
         ],
@@ -355,8 +376,8 @@ export class LinksService {
       .createQueryBuilder('link')
       .where('link.source = :source', { source: 'youtube' })
       .andWhere(
-        '(link.embedding IS NULL OR link.transcript_status = :failed)',
-        { failed: 'failed' },
+        `(link.embedding IS NULL
+          OR link.transcript_status IN ('failed', 'rate_limited'))`,
       )
       .take(batchSize)
       .getMany();
