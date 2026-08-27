@@ -57,16 +57,25 @@ export class EmbeddingService {
   }
 }
 
-// Only ever called with YouTube data (title + author_name from oEmbed +
-// category) in this v1 prototype — author_name is more discriminative for
-// semantic search than the literal string "youtube" would be. When a
-// second platform is added, generalize this to accept whatever
-// per-platform fields are available.
+// Builds the document-side text that gets embedded for semantic search.
+//
+// When a transcript-derived `summary` is available it carries the actual
+// content of the video, which is what most searches are really about
+// ("that video explaining X"). Title + author_name are still prepended so
+// creator/genre queries ("tanmay meme reactions") keep working. `category`
+// is only used as a last resort — it's one of ~8 generic buckets and
+// concatenating it onto a short string pulls unrelated links together.
 export function buildEmbeddingInput(link: {
   title?: string | null;
   authorName?: string | null;
   category?: string | null;
+  summary?: string | null;
 }): string {
+  if (link.summary?.trim()) {
+    return [link.title, link.authorName, link.summary.trim()]
+      .filter(Boolean)
+      .join(' — ');
+  }
   return [link.title, link.authorName, link.category]
     .filter(Boolean)
     .join(' — ');

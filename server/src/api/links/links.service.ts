@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Link, LinkSource } from './link.entity';
@@ -11,12 +11,19 @@ import {
   getFacebookThumbnailUrl,
   getLinkedInThumbnailUrl,
 } from './utils/og-metadata.util';
+import { fetchYoutubeTranscript } from './utils/youtube-transcript.util';
 import { EmbeddingService, buildEmbeddingInput } from './embedding.service';
 import { CategorizationService } from './categorization.service';
+import { SummarizationService } from './summarization.service';
 import { FoldersService } from '../folders/folders.service';
 import { capitalize } from '../folders/folder-defaults';
 
-const MAX_SEMANTIC_DISTANCE = 0.5;
+// Cosine distance (`<=>`) ranges 0 (identical) to 2 (opposite). Now that the
+// document side embeds a transcript summary rather than a ~5-word title,
+// genuinely related query/document pairs sit meaningfully closer, so this
+// cutoff can be a touch more generous than the old title-only 0.5 without
+// letting in noise. Tune against a fixed set of real queries.
+const MAX_SEMANTIC_DISTANCE = 0.6;
 
 @Injectable()
 export class LinksService {
@@ -25,8 +32,11 @@ export class LinksService {
     private readonly linkRepository: Repository<Link>,
     private readonly embeddingService: EmbeddingService,
     private readonly categorizationService: CategorizationService,
+    private readonly summarizationService: SummarizationService,
     private readonly foldersService: FoldersService,
   ) {}
+
+  private readonly logger = new Logger(LinksService.name);
 
   async create(userId: string, dto: CreateLinkDto): Promise<Link> {
     const source = dto.source ?? this.inferSource(dto.url);
@@ -109,25 +119,79 @@ export class LinksService {
     const saved = await this.linkRepository.save(link);
 
     // v1 prototype: only YouTube links get embedded/semantically searchable.
-    // Best-effort — a failed/slow embed can never fail or delay link
-    // creation, so the saved link is returned regardless of the outcome.
+    // Fired and NOT awaited — fetching the transcript and summarising it can
+    // take several seconds, and the share sheet is waiting on this response.
+    // indexYoutubeLink owns all its own error handling and never throws.
     if (source === 'youtube') {
-      const embedding = await this.embeddingService.embed(
-        buildEmbeddingInput({
-          title,
-          authorName: youtubeAuthorName,
-          category,
-        }),
-      );
-      if (embedding) {
-        await this.linkRepository.query(
-          `UPDATE links SET embedding = $1::vector WHERE id = $2`,
-          [`[${embedding.join(',')}]`, saved.id],
-        );
-      }
+      void this.indexYoutubeLink(saved.id, {
+        url: dto.url,
+        title,
+        authorName: youtubeAuthorName,
+        category,
+      });
     }
 
     return saved;
+  }
+
+  /**
+   * Transcript -> summary -> embedding pass for one YouTube link, run in the
+   * background after the link is saved. Every step is best-effort: no
+   * transcript falls back to embedding title/author, a failed embed leaves
+   * the existing vector untouched, and any throw is caught and recorded as
+   * transcript_status = 'failed' for a later retry.
+   */
+  private async indexYoutubeLink(
+    linkId: string,
+    meta: {
+      url: string;
+      title: string | null;
+      authorName: string | null;
+      category: string | null;
+    },
+  ): Promise<void> {
+    try {
+      const transcript = await fetchYoutubeTranscript(meta.url);
+
+      let summary: string | null = null;
+      if (transcript) {
+        summary = await this.summarizationService.summarize({
+          title: meta.title,
+          authorName: meta.authorName,
+          transcript,
+        });
+      }
+
+      const embedding = await this.embeddingService.embed(
+        buildEmbeddingInput({
+          title: meta.title,
+          authorName: meta.authorName,
+          category: meta.category,
+          summary,
+        }),
+      );
+
+      await this.linkRepository.query(
+        `UPDATE links
+            SET summary = $1,
+                transcript_status = $2,
+                embedding = COALESCE($3::vector, embedding)
+          WHERE id = $4`,
+        [
+          summary,
+          transcript ? 'ok' : 'no_transcript',
+          embedding ? `[${embedding.join(',')}]` : null,
+          linkId,
+        ],
+      );
+    } catch (err) {
+      this.logger.warn(`indexYoutubeLink failed for ${linkId}: ${String(err)}`);
+      await this.linkRepository
+        .query(`UPDATE links SET transcript_status = 'failed' WHERE id = $1`, [
+          linkId,
+        ])
+        .catch(() => undefined);
+    }
   }
 
   /**
@@ -266,10 +330,8 @@ export class LinksService {
     // construction. This keeps searchSemantic platform-agnostic so adding
     // other platforms later requires no change to this method.
     //
-    // Cosine distance (`<=>`) ranges 0 (identical) to 2 (opposite); below
-    // ~0.5 is a reasonable "actually related" cutoff for this embedding
-    // model. Without it, a query with no good matches still returns its
-    // closest-available links ranked as if they were relevant.
+    // The MAX_SEMANTIC_DISTANCE cutoff keeps a query with no good matches
+    // from returning its closest-available links ranked as if relevant.
     const vectorLiteral = `[${embedding.join(',')}]`;
     return this.linkRepository
       .createQueryBuilder('link')
@@ -286,31 +348,29 @@ export class LinksService {
   // Not wired to any route yet — for a future scheduled task or admin
   // endpoint. Scoped to YouTube for this prototype; relax/generalize the
   // source filter as other platforms get their own embedding-input fetchers.
+  // Picks up rows that were never indexed (embedding IS NULL) as well as
+  // ones whose earlier pass failed (transcript_status = 'failed').
   async backfillMissingEmbeddings(batchSize = 50): Promise<number> {
     const links = await this.linkRepository
       .createQueryBuilder('link')
       .where('link.source = :source', { source: 'youtube' })
-      .andWhere('link.embedding IS NULL')
+      .andWhere(
+        '(link.embedding IS NULL OR link.transcript_status = :failed)',
+        { failed: 'failed' },
+      )
       .take(batchSize)
       .getMany();
 
     let updated = 0;
     for (const link of links) {
       const oembed = await fetchYoutubeOembed(link.url);
-      const embedding = await this.embeddingService.embed(
-        buildEmbeddingInput({
-          title: link.title,
-          authorName: oembed?.authorName ?? null,
-          category: link.category,
-        }),
-      );
-      if (embedding) {
-        await this.linkRepository.query(
-          `UPDATE links SET embedding = $1::vector WHERE id = $2`,
-          [`[${embedding.join(',')}]`, link.id],
-        );
-        updated++;
-      }
+      await this.indexYoutubeLink(link.id, {
+        url: link.url,
+        title: link.title,
+        authorName: oembed?.authorName ?? null,
+        category: link.category,
+      });
+      updated++;
     }
     return updated;
   }

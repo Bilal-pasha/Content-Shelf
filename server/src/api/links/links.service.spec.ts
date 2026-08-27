@@ -4,6 +4,7 @@ import { LinksService } from './links.service';
 import { Link } from './link.entity';
 import { EmbeddingService } from './embedding.service';
 import { CategorizationService } from './categorization.service';
+import { SummarizationService } from './summarization.service';
 import { FoldersService } from '../folders/folders.service';
 
 type QueryBuilderMock = {
@@ -52,6 +53,10 @@ describe('LinksService', () => {
         {
           provide: CategorizationService,
           useValue: { categorize: jest.fn(() => Promise.resolve(null)) },
+        },
+        {
+          provide: SummarizationService,
+          useValue: { summarize: jest.fn(() => Promise.resolve(null)) },
         },
         {
           provide: FoldersService,
