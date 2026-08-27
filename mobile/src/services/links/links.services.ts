@@ -22,11 +22,13 @@ export const linksService = {
     search?: string;
     source?: LinkSource;
     category?: string;
+    folderId?: string;
   }): Promise<SavedLink[]> {
     const params = new URLSearchParams();
     if (opts?.search) params.set('search', opts.search);
     if (opts?.source) params.set('source', opts.source);
     if (opts?.category) params.set('category', opts.category);
+    if (opts?.folderId) params.set('folderId', opts.folderId);
     const qs = params.toString();
     const url = qs ? `${API_ENDPOINTS.LINKS_LIST}?${qs}` : API_ENDPOINTS.LINKS_LIST;
     const { data } = await httpPrivate.get<ApiLinkResponse>(url);
@@ -53,6 +55,7 @@ export function useLinks(opts?: {
   search?: string;
   source?: LinkSource;
   category?: LinkCategory | '';
+  folderId?: string;
 }) {
   return useQuery({
     queryKey: [
@@ -60,6 +63,7 @@ export function useLinks(opts?: {
       opts?.search ?? '',
       opts?.source ?? '',
       opts?.category ?? '',
+      opts?.folderId ?? '',
     ],
     queryFn: () => linksService.list(opts),
   });

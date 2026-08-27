@@ -19,6 +19,12 @@ export class LinkResponseDto {
   @ApiPropertyOptional({ nullable: true })
   category: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Folder this link is filed under',
+  })
+  folderId: string | null;
+
   @ApiPropertyOptional({ nullable: true })
   thumbnailUrl: string | null;
 

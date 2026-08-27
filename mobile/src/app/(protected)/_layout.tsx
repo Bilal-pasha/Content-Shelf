@@ -34,6 +34,7 @@ export default function ProtectedLayout() {
       }}>
       <Stack.Screen name="dashboard" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="folders" />
     </Stack>
   );
 }

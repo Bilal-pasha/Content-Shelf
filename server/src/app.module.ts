@@ -8,7 +8,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './api/auth/auth.module';
 import { LinksModule } from './api/links/links.module';
+import { FoldersModule } from './api/folders/folders.module';
 import { Link } from './api/links/link.entity';
+import { Folder } from './api/folders/folder.entity';
 import { User } from './api/user/user.entity';
 import { validateEnv } from './config/env.validation';
 
@@ -55,7 +57,7 @@ import { validateEnv } from './config/env.validation';
         username: configService.get<string>('POSTGRES_USER'),
         password: configService.get<string>('POSTGRES_PASSWORD'),
         database: configService.get<string>('POSTGRES_DB'),
-        entities: [User, Link],
+        entities: [User, Link, Folder],
         migrations: ['dist/migrations/*.js'],
         migrationsRun: false,
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
@@ -65,6 +67,7 @@ import { validateEnv } from './config/env.validation';
     }),
     AuthModule,
     LinksModule,
+    FoldersModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

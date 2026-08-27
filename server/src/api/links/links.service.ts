@@ -12,6 +12,9 @@ import {
   getLinkedInThumbnailUrl,
 } from './utils/og-metadata.util';
 import { EmbeddingService, buildEmbeddingInput } from './embedding.service';
+import { CategorizationService } from './categorization.service';
+import { FoldersService } from '../folders/folders.service';
+import { capitalize } from '../folders/folder-defaults';
 
 const MAX_SEMANTIC_DISTANCE = 0.5;
 
@@ -21,6 +24,8 @@ export class LinksService {
     @InjectRepository(Link)
     private readonly linkRepository: Repository<Link>,
     private readonly embeddingService: EmbeddingService,
+    private readonly categorizationService: CategorizationService,
+    private readonly foldersService: FoldersService,
   ) {}
 
   async create(userId: string, dto: CreateLinkDto): Promise<Link> {
@@ -65,13 +70,41 @@ export class LinksService {
       if (liThumb) thumbnailUrl = liThumb;
     }
 
+    // Auto-categorize when the client didn't supply one (the share flow
+    // never does). Best-effort — a failed classification just stores null.
+    const category =
+      dto.category ??
+      (await this.categorizationService.categorize({
+        title,
+        url: dto.url,
+        source,
+      }));
+
+    // Resolve the target folder: an explicit id (verified to belong to the
+    // user) wins; otherwise a name is matched case-insensitively or created
+    // on the fly with category-derived icon/color.
+    let folderId: string | null = null;
+    if (
+      dto.folderId &&
+      (await this.foldersService.exists(userId, dto.folderId))
+    ) {
+      folderId = dto.folderId;
+    } else if (dto.folderName?.trim()) {
+      folderId = await this.foldersService.findOrCreate(
+        userId,
+        dto.folderName.trim(),
+        category,
+      );
+    }
+
     const link = this.linkRepository.create({
       userId,
       url: dto.url,
       source,
       title,
-      category: dto.category ?? null,
+      category: category ?? null,
       thumbnailUrl,
+      folderId,
     });
     const saved = await this.linkRepository.save(link);
 
@@ -83,7 +116,7 @@ export class LinksService {
         buildEmbeddingInput({
           title,
           authorName: youtubeAuthorName,
-          category: dto.category ?? null,
+          category,
         }),
       );
       if (embedding) {
@@ -97,12 +130,57 @@ export class LinksService {
     return saved;
   }
 
+  /**
+   * Powers the "suggested folder" preselection in the share sheet: fetch
+   * just enough metadata to auto-detect a category, then map that to one of
+   * the user's existing folders (if any). Returns a display name to prefill
+   * the "New folder" field when there's no match yet. Best-effort — any
+   * failure yields nulls and the sheet simply opens with nothing preselected.
+   */
+  async suggestFolder(
+    userId: string,
+    url: string,
+  ): Promise<{
+    category: string | null;
+    folderId: string | null;
+    folderName: string | null;
+  }> {
+    const source = this.inferSource(url);
+
+    let title: string | null = null;
+    if (source === 'youtube') {
+      const oembed = await fetchYoutubeOembed(url);
+      title = oembed?.title ?? null;
+    }
+    if (!title) {
+      const og = await fetchOgMetadata(url);
+      title = og.title;
+    }
+
+    const category = await this.categorizationService.categorize({
+      title,
+      url,
+      source,
+    });
+    if (!category) {
+      return { category: null, folderId: null, folderName: null };
+    }
+
+    const folder = await this.foldersService.findByName(userId, category);
+    return {
+      category,
+      folderId: folder?.id ?? null,
+      folderName: folder?.name ?? capitalize(category),
+    };
+  }
+
   async findAll(
     userId: string,
     opts?: {
       search?: string;
       source?: LinkSource;
       category?: string;
+      folderId?: string;
       limit?: number;
       offset?: number;
     },
@@ -114,6 +192,12 @@ export class LinksService {
 
     if (opts?.source) {
       qb.andWhere('link.source = :source', { source: opts.source });
+    }
+
+    if (opts?.folderId?.trim()) {
+      qb.andWhere('link.folder_id = :folderId', {
+        folderId: opts.folderId.trim(),
+      });
     }
 
     if (opts?.category?.trim()) {

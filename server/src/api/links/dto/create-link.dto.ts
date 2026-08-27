@@ -1,4 +1,11 @@
-import { IsString, IsUrl, IsOptional, IsIn, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsUrl,
+  IsOptional,
+  IsIn,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsPublicUrl } from '../../../common/security/is-public-url.validator';
 
@@ -73,4 +80,21 @@ export class CreateLinkDto {
   @IsUrl({}, { message: 'thumbnailUrl must be a valid URL' })
   @MaxLength(2048)
   thumbnailUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Existing folder to file this link under',
+  })
+  @IsOptional()
+  @IsUUID()
+  folderId?: string;
+
+  @ApiPropertyOptional({
+    example: 'Cooking',
+    description:
+      'Folder name to file under — matched case-insensitively, created if missing. Ignored when folderId is set.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  folderName?: string;
 }

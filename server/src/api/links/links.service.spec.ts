@@ -3,6 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { LinksService } from './links.service';
 import { Link } from './link.entity';
 import { EmbeddingService } from './embedding.service';
+import { CategorizationService } from './categorization.service';
+import { FoldersService } from '../folders/folders.service';
 
 type QueryBuilderMock = {
   where: jest.Mock;
@@ -47,6 +49,18 @@ describe('LinksService', () => {
         LinksService,
         { provide: getRepositoryToken(Link), useValue: repo },
         { provide: EmbeddingService, useValue: embeddingService },
+        {
+          provide: CategorizationService,
+          useValue: { categorize: jest.fn(() => Promise.resolve(null)) },
+        },
+        {
+          provide: FoldersService,
+          useValue: {
+            exists: jest.fn(() => Promise.resolve(false)),
+            findOrCreate: jest.fn(() => Promise.resolve('folder-1')),
+            findByName: jest.fn(() => Promise.resolve(null)),
+          },
+        },
       ],
     }).compile();
 
@@ -63,7 +77,9 @@ describe('LinksService', () => {
 
       const result = await service.searchSemantic('user-1', 'react native');
 
-      expect(embeddingService.embed).toHaveBeenCalledWith('react native');
+      expect(embeddingService.embed).toHaveBeenCalledWith('react native', {
+        isQuery: true,
+      });
       expect(findAllSpy).toHaveBeenCalledWith('user-1', {
         search: 'react native',
         limit: 20,

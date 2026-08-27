@@ -1,6 +1,7 @@
 export const PrivateRoutes = {
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',
+  FOLDERS: '/folders',
 } as const;
 
 export const PublicRoutes = {

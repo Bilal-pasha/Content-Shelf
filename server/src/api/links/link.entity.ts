@@ -45,6 +45,9 @@ export class Link {
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'category' })
   category: string | null;
 
+  @Column({ type: 'uuid', nullable: true, name: 'folder_id' })
+  folderId: string | null;
+
   @Column({
     type: 'varchar',
     length: 2048,

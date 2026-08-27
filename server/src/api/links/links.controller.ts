@@ -45,6 +45,35 @@ export class LinksController {
     };
   }
 
+  @Get('suggest')
+  @ApiOperation({
+    summary: 'Suggest a folder for a URL about to be shared (auto-category)',
+  })
+  @ApiResponse({ status: 200, description: 'Suggested folder / category' })
+  @ApiResponse({ status: 400, description: 'Missing query parameter "url"' })
+  async suggest(
+    @CurrentUser() user: User,
+    @Query('url') url?: string,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      category: string | null;
+      folderId: string | null;
+      folderName: string | null;
+    };
+  }> {
+    if (!url?.trim()) {
+      throw new BadRequestException('Query parameter "url" is required');
+    }
+    const data = await this.linksService.suggestFolder(user.id, url.trim());
+    return {
+      success: true,
+      message: 'Suggestion generated successfully',
+      data,
+    };
+  }
+
   @Get('search')
   @ApiOperation({
     summary:
@@ -82,6 +111,7 @@ export class LinksController {
     @Query('search') search?: string,
     @Query('source') source?: string,
     @Query('category') category?: string,
+    @Query('folderId') folderId?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ): Promise<{ success: boolean; message: string; data: LinkResponseDto[] }> {
@@ -89,6 +119,7 @@ export class LinksController {
       search,
       source: source as LinkSource | undefined,
       category,
+      folderId,
       limit: limit !== undefined ? Number(limit) : undefined,
       offset: offset !== undefined ? Number(offset) : undefined,
     });
@@ -106,6 +137,7 @@ export class LinksController {
       source: link.source,
       title: link.title,
       category: link.category,
+      folderId: link.folderId,
       thumbnailUrl: link.thumbnailUrl,
       createdAt: link.createdAt.toISOString(),
     };

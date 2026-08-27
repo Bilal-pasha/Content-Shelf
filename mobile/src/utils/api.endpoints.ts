@@ -12,4 +12,6 @@ export const API_ENDPOINTS = {
   LINKS: '/v1/api/links',
   LINKS_LIST: '/v1/api/links',
   LINKS_SEARCH: '/v1/api/links/search',
+  LINKS_SUGGEST: '/v1/api/links/suggest',
+  FOLDERS: '/v1/api/folders',
 } as const;

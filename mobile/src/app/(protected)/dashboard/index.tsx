@@ -25,6 +25,7 @@ import {
   useSemanticSearch,
 } from '@/services/links/links.services';
 import type { LinkSource, LinkCategory, SavedLink } from '@/services/links/links.types';
+import { useFolders } from '@/services/folders/folders.services';
 import { PrivateRoutes } from '@/constants/routes';
 
 import {
@@ -35,6 +36,7 @@ import {
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardSearch } from '@/components/dashboard/DashboardSearch';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
+import { FolderFilterRow } from '@/components/dashboard/FolderFilterRow';
 import { VideoBox } from '@/components/dashboard/VideoBox';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { SkeletonGrid } from '@/components/dashboard/SkeletonGrid';
@@ -54,6 +56,8 @@ export default function DashboardScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [source, setSource] = useState<'' | LinkSource>('');
   const [category, setCategory] = useState<'' | LinkCategory>('');
+  const [folderId, setFolderId] = useState('');
+  const { data: folders = [] } = useFolders();
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [manualUrl, setManualUrl] = useState('');
   const [manualCategory, setManualCategory] = useState<LinkCategory | null>(null);
@@ -79,6 +83,7 @@ export default function DashboardScreen() {
     search: undefined,
     source: source || undefined,
     category: category || undefined,
+    folderId: folderId || undefined,
   });
 
   // Combining semantic search with source/category filters is a reasonable
@@ -148,7 +153,7 @@ export default function DashboardScreen() {
     });
   }, [manualUrl, manualCategory, manualSource, addLinkMutation]);
 
-  const hasFilters = Boolean(search.trim() || source || category);
+  const hasFilters = Boolean(search.trim() || source || category || folderId);
 
   const renderItem = useCallback(
     ({ item, index }: { item: SavedLink; index: number }) => (
@@ -190,6 +195,13 @@ export default function DashboardScreen() {
             />
 
             <DashboardSearch value={search} onChangeText={setSearch} placeholder="Search videos..." />
+
+            <FolderFilterRow
+              folders={folders}
+              selectedId={folderId}
+              onSelect={setFolderId}
+              onManage={() => router.push(PrivateRoutes.FOLDERS)}
+            />
 
             <DashboardFilters
               source={source}

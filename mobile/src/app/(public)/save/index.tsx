@@ -1,31 +1,44 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 
 import { useAuth } from '@/providers/AuthProvider';
 import { useAppTheme } from '@/hooks/use-app-theme';
 import { linksService } from '@/services/links/links.services';
 import { pendingLinkStorage } from '@/services/links/pending-link.storage';
 import {
-  PrivateRoutes,
-  PublicRoutes,
-} from '@/constants/routes';
-import type { LinkCategory, LinkSource } from '@/services/links/links.types';
-
-import { AddLinkSheet } from '@/components/save/AddLinkSheet';
+  useFolders,
+  useFolderSuggestion,
+} from '@/services/folders/folders.services';
+import { PrivateRoutes, PublicRoutes } from '@/constants/routes';
+import {
+  SaveToFolderSheet,
+  type FolderSelection,
+} from '@/components/save/SaveToFolderSheet';
 
 export default function SaveLinkScreen() {
   const params = useLocalSearchParams<{ url?: string }>();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
-  const [status, setStatus] = useState<'idle' | 'saving' | 'redirecting'>('idle');
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
-  const [category, setCategory] = useState<LinkCategory | null>(null);
-  const [source, setSource] = useState<LinkSource | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const handled = useRef(false);
+  const queryClient = useQueryClient();
   const { colors, spacing, typography } = useAppTheme();
+
+  const [url, setUrl] = useState<string | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const handled = useRef(false);
+
+  const canSuggest = Boolean(url) && isAuthenticated && !authLoading;
+  const { data: folders = [], isLoading: foldersLoading } = useFolders({
+    enabled: isAuthenticated && !authLoading,
+  });
+  const { data: suggestion, isLoading: suggestionLoading } = useFolderSuggestion(
+    url ?? '',
+    canSuggest,
+  );
 
   useEffect(() => {
     if (authLoading || handled.current) return;
@@ -35,8 +48,7 @@ export default function SaveLinkScreen() {
       const raw = typeof params.url === 'string' ? params.url : params.url?.[0];
       linkUrl = raw ? decodeURIComponent(raw).trim() : undefined;
     } catch {
-      linkUrl = (typeof params.url === 'string' ? params.url : params.url?.[0])
-        ?.trim();
+      linkUrl = (typeof params.url === 'string' ? params.url : params.url?.[0])?.trim();
     }
 
     if (!linkUrl) {
@@ -54,79 +66,61 @@ export default function SaveLinkScreen() {
     }
 
     handled.current = true;
-    setPendingUrl(linkUrl ?? null);
-    setShowCategoryModal(true);
-  }, [params.url, isAuthenticated, authLoading, router]);
+    setUrl(linkUrl);
+    setSheetVisible(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.url, isAuthenticated, authLoading]);
 
-  const handleSave = () => {
-    if (!pendingUrl || !category) {
-      setSaveError('Please choose a category.');
-      return;
-    }
-    setSaveError(null);
-    setStatus('saving');
+  const handleSubmit = (selection: FolderSelection) => {
+    if (!url || isSaving) return;
+    setError(null);
+    setIsSaving(true);
     linksService
       .create({
-        url: pendingUrl,
-        category,
-        ...(source && { source }),
+        url,
+        ...(selection?.folderId
+          ? { folderId: selection.folderId }
+          : selection?.folderName
+            ? { folderName: selection.folderName }
+            : {}),
       })
       .then(() => {
-        setStatus('redirecting');
-        setShowCategoryModal(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        queryClient.invalidateQueries({ queryKey: ['links'] });
+        queryClient.invalidateQueries({ queryKey: ['folders'] });
+        setSheetVisible(false);
         router.replace(PrivateRoutes.DASHBOARD);
       })
       .catch(() => {
-        setStatus('idle');
-        setSaveError('Could not save. Try again.');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setIsSaving(false);
+        setError('Could not save. Try again.');
       });
   };
 
-  const handleCancel = () => {
-    setShowCategoryModal(false);
-    setPendingUrl(null);
-    setCategory(null);
-    setSource(null);
-    setSaveError(null);
-    router.replace(PublicRoutes.WELCOME);
-  };
-
-  if (authLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background, gap: spacing.lg }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.textMuted, fontSize: typography.base.fontSize }}>
-          Checking sign-in…
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background, gap: spacing.lg }]}>
-      <AddLinkSheet
-        visible={showCategoryModal}
-        url={pendingUrl ?? ''}
-        category={category}
-        source={source}
-        onCategoryChange={setCategory}
-        onSourceChange={setSource}
-        onSave={handleSave}
-        onCancel={handleCancel}
-        isSaving={status === 'saving'}
-        error={saveError}
-      />
-
-      {!showCategoryModal && status !== 'idle' && (
+      {(authLoading || !sheetVisible) && (
         <>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ color: colors.textMuted, fontSize: typography.base.fontSize }}>
-            {status === 'saving'
-              ? 'Saving link…'
-              : 'Taking you to dashboard…'}
+            {authLoading ? 'Checking sign-in…' : 'Opening…'}
           </Text>
         </>
       )}
+
+      <SaveToFolderSheet
+        visible={sheetVisible}
+        url={url ?? ''}
+        folders={folders}
+        foldersLoading={foldersLoading}
+        suggestion={suggestion}
+        suggestionLoading={suggestionLoading}
+        isSaving={isSaving}
+        error={error}
+        onSubmit={handleSubmit}
+        onCancel={() => handleSubmit(null)}
+      />
     </View>
   );
 }
