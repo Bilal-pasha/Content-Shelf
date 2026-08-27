@@ -15,6 +15,7 @@ import { PrivateRoutes, PublicRoutes } from '@/constants/routes';
 import { useQueryClient } from '@tanstack/react-query';
 import { linksService } from '@/services/links/links.services';
 import { pendingLinkStorage } from '@/services/links/pending-link.storage';
+import { googleAuthService } from '@/services/auth/google-auth.service';
 
 export interface AuthState {
   user: User | null;
@@ -30,6 +31,7 @@ export interface AuthContextType extends AuthState {
   signUp: (
     userData: RegisterFormData
   ) => Promise<{ success: boolean; message?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; message?: string }>;
   signOut: () => Promise<void>;
   fetchUserStatus: () => Promise<User | null>;
   clearError: () => void;
@@ -98,6 +100,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [queryClient]);
 
+  // Save a link the user shared before authenticating (see pending-link.storage).
+  // Isolated in its own try/catch so a save failure never turns a successful
+  // sign-in into a failed one.
+  const consumePendingLink = useCallback(async (): Promise<void> => {
+    try {
+      const pendingUrl = await pendingLinkStorage.get();
+      if (pendingUrl) {
+        await linksService.create({ url: pendingUrl });
+        await pendingLinkStorage.clear();
+      }
+    } catch (err) {
+      console.log('Failed to save pending shared link:', err);
+    }
+  }, []);
+
   const signIn = useCallback(
     async (
       credentials: LoginFormData
@@ -114,11 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const user = await fetchUserStatus();
 
         if (user) {
-          const pendingUrl = await pendingLinkStorage.get();
-          if (pendingUrl) {
-            await linksService.create({ url: pendingUrl });
-            await pendingLinkStorage.clear();
-          }
+          await consumePendingLink();
           router.replace(PrivateRoutes.DASHBOARD);
         }
 
@@ -136,7 +149,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return { success: false, message };
       }
     },
-    [fetchUserStatus, router]
+    [fetchUserStatus, consumePendingLink, router]
   );
 
   const signUp = useCallback(
@@ -155,11 +168,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const user = await fetchUserStatus();
 
         if (user) {
-          const pendingUrl = await pendingLinkStorage.get();
-          if (pendingUrl) {
-            await linksService.create({ url: pendingUrl });
-            await pendingLinkStorage.clear();
-          }
+          await consumePendingLink();
           router.replace(PrivateRoutes.DASHBOARD);
         }
 
@@ -176,14 +185,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return { success: false, message };
       }
     },
-    [fetchUserStatus, router]
+    [fetchUserStatus, consumePendingLink, router]
   );
+
+  const signInWithGoogle = useCallback(async (): Promise<{
+    success: boolean;
+    message?: string;
+  }> => {
+    try {
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      const response = await googleAuthService.signInWithGoogle();
+      if (!response.success) {
+        throw new Error(response.message);
+      }
+
+      // Google service already stored the tokens; refresh provider state so
+      // the protected layout sees `isAuthenticated` before we navigate.
+      const user = await fetchUserStatus();
+      if (user) {
+        await consumePendingLink();
+        router.replace(PrivateRoutes.DASHBOARD);
+      }
+
+      return { success: true, message: response.message };
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Google sign in failed';
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: message,
+        isAuthenticated: false,
+        user: null,
+      }));
+      return { success: false, message };
+    }
+  }, [fetchUserStatus, consumePendingLink, router]);
 
   const signOut = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, isLoading: true }));
 
       await authService.logout();
+      // Best-effort: drop the native Google session too so the next
+      // "Continue with Google" shows the account chooser.
+      await googleAuthService.signOut();
       queryClient.removeQueries({ queryKey: ['user'] });
 
       setState({
@@ -226,6 +273,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     ...state,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     fetchUserStatus,
     clearError,

@@ -10,6 +10,7 @@ import {
   Res,
   Req,
   UnauthorizedException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import {
@@ -43,6 +44,11 @@ import { OAuth2Client } from 'google-auth-library';
 @Controller('api/auth')
 export class AuthController {
   private googleClient: OAuth2Client;
+  // Accepted `aud` values for a Google ID token. With the mobile SDK
+  // configured with `webClientId`, tokens are minted for the web client on
+  // both platforms — but we also accept the iOS/Android client IDs when set,
+  // so a future mobile-config change can't silently break verification.
+  private readonly googleAudiences: string[];
 
   constructor(
     private readonly authService: AuthService,
@@ -51,6 +57,12 @@ export class AuthController {
     private readonly logger: PinoLogger,
   ) {
     const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    this.googleAudiences = [
+      googleClientId,
+      this.configService.get<string>('GOOGLE_IOS_CLIENT_ID'),
+      this.configService.get<string>('GOOGLE_ANDROID_CLIENT_ID'),
+    ].filter((id): id is string => Boolean(id));
+
     if (googleClientId) {
       this.googleClient = new OAuth2Client(googleClientId);
     }
@@ -342,11 +354,18 @@ export class AuthController {
     @Body() googleAuthDto: GoogleAuthDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
+    if (!this.googleClient) {
+      this.logger.error(
+        'Google sign-in called but GOOGLE_CLIENT_ID is not configured',
+      );
+      throw new ServiceUnavailableException('Google sign-in is not configured');
+    }
+
     try {
       // Verify Google ID token
       const ticket = await this.googleClient.verifyIdToken({
         idToken: googleAuthDto.idToken,
-        audience: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+        audience: this.googleAudiences,
       });
 
       const payload = ticket.getPayload();

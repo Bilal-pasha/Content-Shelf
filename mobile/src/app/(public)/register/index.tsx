@@ -14,7 +14,6 @@ import { PublicRoutes, PrivateRoutes } from '@/constants/routes';
 import { registerSchema, type RegisterFormData } from '@/schemas';
 import { images } from '@/constants/images';
 import { useAuth } from '@/providers/AuthProvider';
-import { useGoogleSignIn } from '@/services/auth/google-auth.hooks';
 
 const GoogleIcon = images.googleLogo;
 
@@ -27,10 +26,11 @@ const LEGAL_URLS = {
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { signUp, clearError, isAuthenticated, isLoading } = useAuth();
+  const { signUp, signInWithGoogle, clearError, isAuthenticated, isLoading } =
+    useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const googleSignIn = useGoogleSignIn();
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { colors, spacing, typography } = useAppTheme();
   const [googlePressed, setGooglePressed] = useState(false);
 
@@ -63,10 +63,11 @@ export default function RegisterScreen() {
   };
 
   const handleGoogleLogin = async () => {
+    clearError();
+    setGoogleLoading(true);
     try {
-      clearError();
-      const result = await googleSignIn.mutateAsync();
-      if (result?.user) {
+      const result = await signInWithGoogle();
+      if (result.success) {
         Toast.show({
           type: 'success',
           text1: 'Welcome!',
@@ -74,16 +75,18 @@ export default function RegisterScreen() {
           position: 'top',
           visibilityTime: 3000,
         });
-        router.replace(PrivateRoutes.DASHBOARD);
+        // Navigation is handled by AuthProvider once state is refreshed.
+      } else if (result.message !== 'Sign in was cancelled') {
+        Toast.show({
+          type: 'error',
+          text1: 'Sign In Failed',
+          text2: result.message || 'Failed to sign in with Google',
+          position: 'top',
+          visibilityTime: 4000,
+        });
       }
-    } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Sign In Failed',
-        text2: error.message || 'Failed to sign in with Google',
-        position: 'top',
-        visibilityTime: 4000,
-      });
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -178,7 +181,7 @@ export default function RegisterScreen() {
         onPress={handleGoogleLogin}
         onPressIn={() => setGooglePressed(true)}
         onPressOut={() => setGooglePressed(false)}
-        disabled={googleSignIn.isPending}
+        disabled={googleLoading}
         style={[
           styles.googleButton,
           {
@@ -187,12 +190,12 @@ export default function RegisterScreen() {
             borderRadius: 12,
             gap: spacing.sm,
             marginBottom: spacing.xxl,
-            opacity: googlePressed ? 0.85 : googleSignIn.isPending ? 0.6 : 1,
+            opacity: googlePressed ? 0.85 : googleLoading ? 0.6 : 1,
           },
         ]}>
         <GoogleIcon width={20} height={20} />
         <Text style={{ color: colors.text, fontSize: typography.base.fontSize, fontWeight: '600' }}>
-          {googleSignIn.isPending ? 'Signing in...' : 'Continue with Google'}
+          {googleLoading ? 'Signing in...' : 'Continue with Google'}
         </Text>
       </Pressable>
 

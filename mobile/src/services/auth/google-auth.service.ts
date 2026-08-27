@@ -57,17 +57,23 @@ class GoogleAuthService {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       }
 
-      // Sign in with Google
+      // Sign in with Google. v13+ returns a discriminated result:
+      // { type: 'cancelled' } instead of throwing on user cancel.
       const userInfo = await GoogleSignin.signIn();
 
-      if (!userInfo.data?.idToken) {
+      if (userInfo.type === 'cancelled') {
+        throw new Error('Sign in was cancelled');
+      }
+
+      const idToken = userInfo.data?.idToken;
+      if (!idToken) {
         throw new Error('Failed to get Google ID token');
       }
 
       // Send ID token to backend for verification and authentication
       const response = await httpNextPublic.post<ApiResponse<AuthResponse['data']>>(
         API_ENDPOINTS.AUTH_SOCIAL_GOOGLE,
-        { idToken: userInfo.data.idToken }
+        { idToken }
       );
 
       // Extract and store tokens from cookies
@@ -113,11 +119,13 @@ class GoogleAuthService {
   }
 
   /**
-   * Check if user is currently signed in to Google
+   * Whether this device has an existing Google session we could restore.
+   * (`isSignedIn()` was removed from the SDK in v13 — `hasPreviousSignIn()`
+   * is the replacement.)
    */
-  async isSignedIn(): Promise<boolean> {
+  hasPreviousSignIn(): boolean {
     try {
-      return await GoogleSignin.isSignedIn();
+      return GoogleSignin.hasPreviousSignIn();
     } catch (error) {
       console.error('Error checking Google sign-in status:', error);
       return false;
